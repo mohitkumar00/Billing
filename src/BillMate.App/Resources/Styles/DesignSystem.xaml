@@ -1,0 +1,80 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ResourceDictionary xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+                    xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml">
+
+    <!-- 8pt Modular Spacing & Radii -->
+    <x:Double x:Key="SpaceSM">8</x:Double>
+    <x:Double x:Key="SpaceMD">12</x:Double>
+    <x:Double x:Key="SpaceLG">16</x:Double>
+    <x:Double x:Key="SpaceXL">24</x:Double>
+    <x:Double x:Key="MinTouchTarget">48</x:Double>
+
+    <!-- Brand Tokens (Overridden at runtime by WhiteLabelConfig) -->
+    <Color x:Key="BrandPrimary">#1565C0</Color>
+    <Color x:Key="BrandAccent">#FF6F00</Color>
+
+    <!-- Elevated Dark & Light Surfaces (Zinc / Slate Parity) -->
+    <Color x:Key="SurfaceBaseLight">#F8FAFC</Color>
+    <Color x:Key="SurfaceBaseDark">#09090B</Color>
+    <Color x:Key="SurfaceCardLight">#FFFFFF</Color>
+    <Color x:Key="SurfaceCardDark">#121216</Color>
+    <Color x:Key="SurfaceElevatedLight">#FFFFFF</Color>
+    <Color x:Key="SurfaceElevatedDark">#18181B</Color>
+    <Color x:Key="BorderSubtleLight">#E2E8F0</Color>
+    <Color x:Key="BorderSubtleDark">#27272A</Color>
+
+    <!-- Text Tokens -->
+    <Color x:Key="TextPrimaryLight">#0F172A</Color>
+    <Color x:Key="TextPrimaryDark">#FAFAFA</Color>
+    <Color x:Key="TextMutedLight">#64748B</Color>
+    <Color x:Key="TextMutedDark">#A1A1AA</Color>
+
+    <!-- Semantic Status Colors -->
+    <Color x:Key="SuccessText">#10B981</Color>
+    <Color x:Key="SuccessBg">#1A10B981</Color>
+    <Color x:Key="WarningText">#F59E0B</Color>
+    <Color x:Key="WarningBg">#1AF59E0B</Color>
+    <Color x:Key="DangerText">#F43F5E</Color>
+    <Color x:Key="DangerBg">#1AF43F5E</Color>
+
+    <!-- Bento Card Style -->
+    <Style x:Key="BentoCardBorder" TargetType="Border">
+        <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceCardLight}, Dark={StaticResource SurfaceCardDark}}" />
+        <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource BorderSubtleLight}, Dark={StaticResource BorderSubtleDark}}" />
+        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeShape" Value="RoundRectangle 16" />
+        <Setter Property="Padding" Value="16" />
+    </Style>
+
+    <!-- Typography Styles -->
+    <Style x:Key="PageTitleStyle" TargetType="Label">
+        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+    </Style>
+
+    <Style x:Key="CardEyebrowStyle" TargetType="Label">
+        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="CharacterSpacing" Value="0.8" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}" />
+    </Style>
+
+    <Style x:Key="TabularMoneyStyle" TargetType="Label">
+        <Setter Property="FontFamily" Value="Consolas" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
+    </Style>
+
+    <!-- Primary Touch CTA (48dp minimum height) -->
+    <Style x:Key="PrimaryActionButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="{StaticResource BrandPrimary}" />
+        <Setter Property="TextColor" Value="#FFFFFF" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
+        <Setter Property="Padding" Value="16,12" />
+    </Style>
+
+</ResourceDictionary>

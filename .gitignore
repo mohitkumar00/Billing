@@ -1,0 +1,37 @@
+# .NET / Visual Studio / Rider / VS Code
+bin/
+obj/
+.vs/
+.idea/
+*.user
+*.suo
+*.sln.docstates
+TestResults/
+*.trx
+*.coverage
+
+# User secrets & local configs
+appsettings.Development.json
+appsettings.Local.json
+client_config.json
+*.pfx
+*.key
+*.dump
+*.dump.gz
+
+# Logs & temporary backups
+logs/
+*.log
+artifacts/
+
+# MAUI / Android
+*.apk
+*.aab
+*.keystore
+*.jks
+AppPackages/
+BundleArtifacts/
+
+# OS
+.DS_Store
+Thumbs.db

@@ -1,0 +1,12 @@
+{
+  "BusinessName": "Demo Retail Store",
+  "AppTitle": "BillMate Billing",
+  "LogoPath": "Assets/logo.png",
+  "PrimaryColor": "#1565C0",
+  "AccentColor": "#FF6F00",
+  "InvoicePrefix": "INV",
+  "GSTINDefault": "",
+  "State": "Maharashtra",
+  "StateCode": "27",
+  "SupportPhone": ""
+}

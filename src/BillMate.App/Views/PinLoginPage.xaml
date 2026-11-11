@@ -1,0 +1,34 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
+             x:Class="BillMate.App.Views.PinLoginPage"
+             x:DataType="vm:PinLoginViewModel"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
+             Title="Cashier PIN">
+
+    <Border Style="{StaticResource BentoCardBorder}" WidthRequest="340"
+            HorizontalOptions="Center" VerticalOptions="Center" Padding="24">
+        <VerticalStackLayout Spacing="16">
+            <Label Text="Quick Cashier Unlock" Style="{StaticResource PageTitleStyle}" HorizontalTextAlignment="Center" />
+            <Label Text="{Binding MaskedPinDots}" FontSize="28" CharacterSpacing="8"
+                   HorizontalTextAlignment="Center" Style="{StaticResource TabularMoneyStyle}" />
+
+            <Grid ColumnDefinitions="*,*,*" RowDefinitions="48,48,48,48" ColumnSpacing="10" RowSpacing="10">
+                <Button Grid.Row="0" Grid.Column="0" Text="1" Command="{Binding AppendDigitCommand}" CommandParameter="1" />
+                <Button Grid.Row="0" Grid.Column="1" Text="2" Command="{Binding AppendDigitCommand}" CommandParameter="2" />
+                <Button Grid.Row="0" Grid.Column="2" Text="3" Command="{Binding AppendDigitCommand}" CommandParameter="3" />
+                <Button Grid.Row="1" Grid.Column="0" Text="4" Command="{Binding AppendDigitCommand}" CommandParameter="4" />
+                <Button Grid.Row="1" Grid.Column="1" Text="5" Command="{Binding AppendDigitCommand}" CommandParameter="5" />
+                <Button Grid.Row="1" Grid.Column="2" Text="6" Command="{Binding AppendDigitCommand}" CommandParameter="6" />
+                <Button Grid.Row="2" Grid.Column="0" Text="7" Command="{Binding AppendDigitCommand}" CommandParameter="7" />
+                <Button Grid.Row="2" Grid.Column="1" Text="8" Command="{Binding AppendDigitCommand}" CommandParameter="8" />
+                <Button Grid.Row="2" Grid.Column="2" Text="9" Command="{Binding AppendDigitCommand}" CommandParameter="9" />
+                <Button Grid.Row="3" Grid.Column="0" Text="⌫" Command="{Binding BackspaceCommand}" />
+                <Button Grid.Row="3" Grid.Column="1" Text="0" Command="{Binding AppendDigitCommand}" CommandParameter="0" />
+                <Button Grid.Row="3" Grid.Column="2" Text="OK" Style="{StaticResource PrimaryActionButton}"
+                        Command="{Binding SubmitPinCommand}" />
+            </Grid>
+        </VerticalStackLayout>
+    </Border>
+</ContentPage>

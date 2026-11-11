@@ -1,0 +1,47 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
+             xmlns:iface="clr-namespace:BillMate.Application.Common.Interfaces;assembly=BillMate.Application"
+             x:Class="BillMate.App.Views.RestoreWizardPage"
+             x:DataType="vm:RestoreWizardViewModel"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
+             Title="Google Drive Restore">
+
+    <VerticalStackLayout Padding="24" Spacing="20" MaximumWidthRequest="720" HorizontalOptions="Center">
+        <Label Text="3-Click Disaster Recovery Wizard" Style="{StaticResource PageTitleStyle}" />
+        <Label Text="{Binding CurrentStep, StringFormat='Step {0} of 3 — Select a verified Drive backup to restore your shop database'}"
+               TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}" />
+
+        <Button Text="Refresh Backups from Google Drive" Style="{StaticResource PrimaryActionButton}"
+                Command="{Binding LoadDriveBackupsCommand}" />
+
+        <CollectionView ItemsSource="{Binding AvailableBackups}" SelectionMode="None">
+            <CollectionView.ItemTemplate>
+                <DataTemplate x:DataType="iface:DriveBackupFileDto">
+                    <Border Style="{StaticResource BentoCardBorder}" Margin="0,0,0,10">
+                        <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="{Binding FileName}" FontAttributes="Bold" />
+                                <Label Text="{Binding CreatedAtUtc, StringFormat='{}{0:dd MMM yyyy, hh:mm tt} UTC'}" FontSize="12"
+                                       TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}" />
+                            </VerticalStackLayout>
+                            <Button Grid.Column="1" Text="Select" Style="{StaticResource PrimaryActionButton}"
+                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:RestoreWizardViewModel}}, Path=ProceedToConfirmationCommand}"
+                                    CommandParameter="{Binding .}" />
+                        </Grid>
+                    </Border>
+                </DataTemplate>
+            </CollectionView.ItemTemplate>
+        </CollectionView>
+
+        <Border Style="{StaticResource BentoCardBorder}" IsVisible="{Binding SelectedBackup, Converter={StaticResource IsNotNullConverter}}">
+            <VerticalStackLayout Spacing="12">
+                <Label Text="Confirm Database Restore" FontSize="16" FontAttributes="Bold" />
+                <Label Text="{Binding SelectedBackup.FileName, StringFormat='Selected: {0}'}" />
+                <Button Text="Restore Database Now" Style="{StaticResource PrimaryActionButton}"
+                        Command="{Binding ExecuteRestoreCommand}" />
+            </VerticalStackLayout>
+        </Border>
+    </VerticalStackLayout>
+</ContentPage>

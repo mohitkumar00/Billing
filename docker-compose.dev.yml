@@ -1,0 +1,21 @@
+services:
+  postgres:
+    image: postgres:16-alpine
+    container_name: billmate-postgres-dev
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: billmatedb
+      POSTGRES_USER: billmate
+      POSTGRES_PASSWORD: billmate_dev_password
+    ports:
+      - "5432:5432"
+    volumes:
+      - billmate_pgdata:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U billmate -d billmatedb"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+
+volumes:
+  billmate_pgdata:

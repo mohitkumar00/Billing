@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="BillMate.App.Controls.EmptyStateView">
+    <Border Stroke="{AppThemeBinding Light={StaticResource BorderSubtleLight}, Dark={StaticResource BorderSubtleDark}}"
+            StrokeDashArray="4,4"
+            StrokeThickness="1.5"
+            StrokeShape="RoundRectangle 16"
+            BackgroundColor="Transparent"
+            Padding="32">
+        <VerticalStackLayout Spacing="12" HorizontalOptions="Center" VerticalOptions="Center">
+            <Border WidthRequest="56" HeightRequest="56" StrokeShape="RoundRectangle 16"
+                    BackgroundColor="{AppThemeBinding Light=#F1F5F9, Dark=#18181B}"
+                    HorizontalOptions="Center">
+                <Label Text="📦" FontSize="24" HorizontalOptions="Center" VerticalOptions="Center" />
+            </Border>
+            <Label x:Name="TitleLabel" Text="No records yet" FontSize="16" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+            <Label x:Name="DescriptionLabel" Text="Items you create will appear here." FontSize="13"
+                   TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}"
+                   HorizontalTextAlignment="Center" MaximumWidthRequest="320" />
+            <Button x:Name="ActionButton" Text="Create First Item" Style="{StaticResource PrimaryActionButton}"
+                    HorizontalOptions="Center" Margin="0,8,0,0" />
+        </VerticalStackLayout>
+    </Border>
+</ContentView>

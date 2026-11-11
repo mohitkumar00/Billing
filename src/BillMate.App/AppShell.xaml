@@ -1,0 +1,25 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<Shell xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+       xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+       xmlns:views="clr-namespace:BillMate.App.Views"
+       x:Class="BillMate.App.AppShell"
+       FlyoutBehavior="{OnIdiom Desktop=Locked, Tablet=Locked, Phone=Disabled}"
+       FlyoutWidth="220"
+       Title="BillMate Billing">
+
+    <FlyoutItem Title="Dashboard" Route="dashboard">
+        <ShellContent ContentTemplate="{DataTemplate views:DashboardPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="New Bill (POS)" Route="pos">
+        <ShellContent ContentTemplate="{DataTemplate views:PosPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Restore Backup" Route="restore">
+        <ShellContent ContentTemplate="{DataTemplate views:RestoreWizardPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Title="Quick PIN Switch" Route="pinlogin">
+        <ShellContent ContentTemplate="{DataTemplate views:PinLoginPage}" />
+    </FlyoutItem>
+</Shell>
