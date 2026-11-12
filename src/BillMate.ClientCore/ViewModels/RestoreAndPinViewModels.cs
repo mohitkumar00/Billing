@@ -65,6 +65,7 @@ public sealed partial class PinLoginViewModel : StatefulViewModelBase
 {
     private readonly IBillMateApi _api;
     private readonly ClientSessionState _session;
+    private readonly INavigationService? _navigation;
 
     [ObservableProperty]
     [NotifyPropertyChangedFor(nameof(MaskedPinDots))]
@@ -73,12 +74,37 @@ public sealed partial class PinLoginViewModel : StatefulViewModelBase
     [ObservableProperty]
     private Guid _selectedUserId;
 
+    [ObservableProperty]
+    private string _serverAddress = "http://localhost:5050";
+
+    [ObservableProperty]
+    private bool _isServerSettingsOpen;
+
     public string MaskedPinDots => new string('●', PinInput.Length).PadRight(4, '○');
 
-    public PinLoginViewModel(IBillMateApi api, ClientSessionState session)
+    public PinLoginViewModel(IBillMateApi api, ClientSessionState session, INavigationService? navigation = null)
     {
         _api = api;
         _session = session;
+        _navigation = navigation;
+        _serverAddress = session.ServerBaseUrl;
+    }
+
+    [RelayCommand]
+    public void ToggleServerSettings()
+    {
+        IsServerSettingsOpen = !IsServerSettingsOpen;
+    }
+
+    [RelayCommand]
+    public void SaveServerAddress()
+    {
+        if (!string.IsNullOrWhiteSpace(ServerAddress))
+        {
+            _session.ServerBaseUrl = ServerAddress.Trim().TrimEnd('/');
+            IsServerSettingsOpen = false;
+            ToastMessage = $"Server updated to {_session.ServerBaseUrl}";
+        }
     }
 
     [RelayCommand]
@@ -95,16 +121,42 @@ public sealed partial class PinLoginViewModel : StatefulViewModelBase
     }
 
     [RelayCommand]
+    public async Task CancelAndBackAsync()
+    {
+        if (_navigation != null)
+        {
+            await _navigation.NavigateToAsync("//pos");
+        }
+    }
+
+    [RelayCommand]
     public async Task SubmitPinAsync(CancellationToken ct = default)
     {
-        if (PinInput.Length < 4 || SelectedUserId == Guid.Empty) return;
+        if (PinInput.Length < 4) return;
 
-        await SafeExecuteAsync(async () =>
+        var targetUserId = SelectedUserId != Guid.Empty ? (Guid?)SelectedUserId : _session.CurrentAuth?.UserId;
+
+        try
         {
-            var auth = await _api.PinLoginAsync(new Application.Features.Auth.PinLoginCommand(SelectedUserId, PinInput, _session.DeviceId), ct);
-            _session.CurrentAuth = auth;
-            PinInput = string.Empty;
-            ToastMessage = $"Welcome back, {auth.FullName}!";
-        });
+            await SafeExecuteAsync(async () =>
+            {
+                var auth = await _api.PinLoginAsync(new Application.Features.Auth.PinLoginCommand(targetUserId, PinInput, _session.DeviceId), ct);
+                _session.CurrentAuth = auth;
+                PinInput = string.Empty;
+                ToastMessage = $"Welcome back, {auth.FullName}!";
+
+                if (_navigation is not null)
+                {
+                    await _navigation.NavigateToAsync("//pos");
+                }
+            });
+        }
+        finally
+        {
+            if (HasError)
+            {
+                PinInput = string.Empty;
+            }
+        }
     }
 }

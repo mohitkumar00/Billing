@@ -25,7 +25,8 @@ public sealed record ProductDto(
     bool IsService,
     bool IsTaxInclusive,
     bool IsFavourite,
-    int RowVersion);
+    int RowVersion,
+    string? ImagePath = null);
 
 public sealed record SearchProductsQuery(string? Query = null, int Limit = 50) : IQuery<IReadOnlyList<ProductDto>>;
 
@@ -45,13 +46,16 @@ public sealed record CreateProductCommand(
     string? Barcode = null,
     string? HsnSacCode = null,
     bool IsService = false,
-    bool IsTaxInclusive = true) : ICommand<ProductDto>;
+    bool IsTaxInclusive = true,
+    string? ImagePath = null) : ICommand<ProductDto>;
 
 [RequirePermission("products.manage")]
 public sealed record AdjustStockCommand(
     Guid ProductId,
     decimal QuantityDelta,
     string Reason) : ICommand<ProductDto>;
+
+public sealed record StockAdjustBody(decimal QuantityDelta, string Reason);
 
 public sealed class CreateProductValidator : AbstractValidator<CreateProductCommand>
 {
@@ -153,7 +157,8 @@ internal sealed class ProductHandlers :
             barcode: request.Barcode,
             hsnSacCode: request.HsnSacCode,
             isService: request.IsService,
-            isTaxInclusive: request.IsTaxInclusive);
+            isTaxInclusive: request.IsTaxInclusive,
+            imagePath: request.ImagePath);
 
         _db.Products.Add(product);
 
@@ -228,5 +233,6 @@ internal sealed class ProductHandlers :
         p.IsService,
         p.IsTaxInclusive,
         p.IsFavourite,
-        p.RowVersion);
+        p.RowVersion,
+        p.ImagePath);
 }

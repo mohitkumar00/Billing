@@ -47,7 +47,8 @@ public sealed class Product : BaseEntity, IAggregateRoot
         string? hsnSacCode = null,
         bool isService = false,
         bool isTaxInclusive = true,
-        bool isRcmApplicable = false)
+        bool isRcmApplicable = false,
+        string? imagePath = null)
     {
         if (string.IsNullOrWhiteSpace(sku))
             throw new DomainException("VAL_030", "Product SKU is required.");
@@ -74,8 +75,15 @@ public sealed class Product : BaseEntity, IAggregateRoot
             SellingPrice = sellingPrice,
             Mrp = mrp > 0m ? mrp : sellingPrice,
             CurrentStock = isService ? 0m : openingStock,
-            LowStockThreshold = lowStockThreshold
+            LowStockThreshold = lowStockThreshold,
+            ImagePath = string.IsNullOrWhiteSpace(imagePath) ? null : imagePath.Trim()
         };
+    }
+
+    public void SetImage(string? imagePath)
+    {
+        ImagePath = string.IsNullOrWhiteSpace(imagePath) ? null : imagePath.Trim();
+        MarkUpdated();
     }
 
     public bool IsLowStock() => !IsService && CurrentStock <= LowStockThreshold;

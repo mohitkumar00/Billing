@@ -1,0 +1,254 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+              xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
+              xmlns:rep="clr-namespace:BillMate.Application.Features.Reports;assembly=BillMate.Application"
+              xmlns:exp="clr-namespace:BillMate.Application.Features.Expenses;assembly=BillMate.Application"
+              xmlns:enums="clr-namespace:BillMate.Domain.Enums;assembly=BillMate.Domain"
+              xmlns:controls="clr-namespace:BillMate.App.Controls"
+              x:Class="BillMate.App.Views.ReportsPage"
+              x:Name="ReportsRoot"
+              x:DataType="vm:ReportsViewModel"
+              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
+              Shell.NavBarIsVisible="False"
+              Title="GST Reports &amp; Accounts">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- 1. Universal Top Navigation Bar -->
+        <controls:AppNavBar Grid.Row="0" ActiveTab="Reports" />
+
+        <!-- 2. Main Content -->
+        <ScrollView Grid.Row="1" Padding="20">
+            <VerticalStackLayout Spacing="18">
+
+                <!-- Header -->
+                <Grid ColumnDefinitions="*,Auto">
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="📈 GST Reports &amp; Store Accounts" Style="{StaticResource PageTitleStyle}" />
+                        <Label Text="GSTR-1, GSTR-3B tax summaries, daily cash day book, and expense ledger"
+                               FontSize="13" TextColor="#CBD5E1" />
+                    </VerticalStackLayout>
+                    <HorizontalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
+                        <Button Text="↻ Refresh" BackgroundColor="#27272A" TextColor="#FAFAFA" CornerRadius="8"
+                                Command="{Binding LoadReportsCommand}" />
+                        <Button Text="+ Record Expense" Style="{StaticResource PrimaryActionButton}"
+                                Command="{Binding OpenAddExpenseDialogCommand}" />
+                    </HorizontalStackLayout>
+                </Grid>
+
+                <!-- Sub-Navigation Tabs Bar -->
+                <Border Style="{StaticResource BentoCardBorder}" Padding="8">
+                    <HorizontalStackLayout Spacing="8">
+                        <Button Text="📖 Day Book &amp; Cash" CornerRadius="8" Padding="16,0" HeightRequest="40"
+                                FontAttributes="Bold" FontSize="13"
+                                BackgroundColor="#334155" TextColor="#FFFFFF" Clicked="OnDayBookTabClicked" />
+                        <Button Text="🧾 GSTR-1 (Sales)" CornerRadius="8" Padding="16,0" HeightRequest="40"
+                                FontAttributes="Bold" FontSize="13"
+                                BackgroundColor="#1E293B" TextColor="#E2E8F0" Clicked="OnGstr1TabClicked" />
+                        <Button Text="📊 GSTR-3B (Slabs)" CornerRadius="8" Padding="16,0" HeightRequest="40"
+                                FontAttributes="Bold" FontSize="13"
+                                BackgroundColor="#1E293B" TextColor="#E2E8F0" Clicked="OnGstr3bTabClicked" />
+                        <Button Text="💸 Store Expenses" CornerRadius="8" Padding="16,0" HeightRequest="40"
+                                FontAttributes="Bold" FontSize="13"
+                                BackgroundColor="#1E293B" TextColor="#E2E8F0" Clicked="OnExpensesTabClicked" />
+                    </HorizontalStackLayout>
+                </Border>
+
+                <!-- TAB 0: Day Book Content -->
+                <VerticalStackLayout IsVisible="{Binding IsDayBookActive}" Spacing="16">
+                    <!-- 4-Card Summary -->
+                    <Grid ColumnDefinitions="*,*,*,*" ColumnSpacing="12">
+                        <Border Grid.Column="0" Style="{StaticResource BentoCardBorder}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="TODAY'S GROSS SALES" Style="{StaticResource CardEyebrowStyle}" />
+                                <Label Text="{Binding DayBook.TotalSales, StringFormat='₹{0:N2}'}" FontSize="22" Style="{StaticResource TabularMoneyStyle}" />
+                                <Label Text="{Binding DayBook.TotalInvoices, StringFormat='{0} invoices'}" FontSize="12" TextColor="{StaticResource SuccessText}" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Border Grid.Column="1" Style="{StaticResource BentoCardBorder}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="NET CASH IN HAND" Style="{StaticResource CardEyebrowStyle}" />
+                                <Label Text="{Binding DayBook.NetCashInHand, StringFormat='₹{0:N2}'}" FontSize="22" TextColor="#10B981" Style="{StaticResource TabularMoneyStyle}" />
+                                <Label Text="{Binding DayBook.CashSales, StringFormat='Cash Inflow: ₹{0:N0}'}" FontSize="12" TextColor="#CBD5E1" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Border Grid.Column="2" Style="{StaticResource BentoCardBorder}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="DIGITAL PAYMENTS" Style="{StaticResource CardEyebrowStyle}" />
+                                <Label Text="{Binding DayBook.UpiSales, StringFormat='₹{0:N2}'}" FontSize="22" Style="{StaticResource TabularMoneyStyle}" />
+                                <Label Text="{Binding DayBook.CardSales, StringFormat='Card: ₹{0:N0}'}" FontSize="12" TextColor="#CBD5E1" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Border Grid.Column="3" Style="{StaticResource BentoCardBorder}">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="STORE EXPENSES" Style="{StaticResource CardEyebrowStyle}" />
+                                <Label Text="{Binding DayBook.TotalExpensesAmount, StringFormat='₹{0:N2}'}" FontSize="22" TextColor="{StaticResource DangerText}" Style="{StaticResource TabularMoneyStyle}" />
+                                <Label Text="{Binding DayBook.CashExpenses, StringFormat='Paid in Cash: ₹{0:N0}'}" FontSize="12" TextColor="{StaticResource WarningText}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+
+                    <!-- Daily Transactions Ledger Table -->
+                    <Border Style="{StaticResource BentoCardBorder}" Padding="16">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="DAILY TRANSACTION LEDGER" Style="{StaticResource CardEyebrowStyle}" />
+
+                            <CollectionView ItemsSource="{Binding DayBook.Transactions}">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="rep:DayBookTransactionDto">
+                                        <Border StrokeThickness="0" StrokeShape="RoundRectangle 6"
+                                                BackgroundColor="#18181B" Padding="12,8" Margin="0,3">
+                                            <Grid ColumnDefinitions="70,130,*,100,100" ColumnSpacing="12" VerticalOptions="Center">
+                                                <Label Grid.Column="0" Text="{Binding Time}" FontSize="12" TextColor="#CBD5E1" VerticalOptions="Center" />
+                                                <Label Grid.Column="1" Text="{Binding ReferenceNumber}" FontAttributes="Bold" FontSize="13" TextColor="#FFFFFF" VerticalOptions="Center" />
+                                                <Label Grid.Column="2" Text="{Binding Description}" FontSize="13" TextColor="#E2E8F0" VerticalOptions="Center" />
+                                                <Label Grid.Column="3" Text="{Binding PaymentMode}" FontSize="12" FontAttributes="Bold" TextColor="#38BDF8" VerticalOptions="Center" />
+                                                <Label Grid.Column="4" Text="{Binding Inflow, StringFormat='₹{0:N2}'}"
+                                                       TextColor="#10B981" FontAttributes="Bold" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- TAB 1: GSTR-1 Content -->
+                <VerticalStackLayout IsVisible="{Binding IsGstr1Active}" Spacing="16">
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="16">
+                        <Border Grid.Column="0" Style="{StaticResource BentoCardBorder}">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="B2C (RETAIL SALES) TAXABLE VALUE" Style="{StaticResource CardEyebrowStyle}" />
+                                <Label Text="{Binding Gstr1.B2CSmallTaxableTotal, StringFormat='₹{0:N2}'}" FontSize="24" Style="{StaticResource TabularMoneyStyle}" />
+                            </VerticalStackLayout>
+                        </Border>
+                        <Border Grid.Column="1" Style="{StaticResource BentoCardBorder}">
+                            <VerticalStackLayout Spacing="6">
+                                <Label Text="B2C TOTAL GST COLLECTED" Style="{StaticResource CardEyebrowStyle}" />
+                                <Label Text="{Binding Gstr1.B2CSmallTaxTotal, StringFormat='₹{0:N2}'}" FontSize="24" TextColor="#10B981" Style="{StaticResource TabularMoneyStyle}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </Grid>
+
+                    <Border Style="{StaticResource BentoCardBorder}" Padding="16">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="HSN / SAC SUMMARY (ANNEX TO GSTR-1)" Style="{StaticResource CardEyebrowStyle}" />
+                            <CollectionView ItemsSource="{Binding Gstr1.HsnSummary}">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="rep:Gstr1HsnEntry">
+                                        <Border BackgroundColor="#18181B" StrokeThickness="0" StrokeShape="RoundRectangle 6" Padding="12,8" Margin="0,3">
+                                            <Grid ColumnDefinitions="120,80,*,120,120" ColumnSpacing="10" VerticalOptions="Center">
+                                                <Label Grid.Column="0" Text="{Binding HsnSacCode, StringFormat='HSN: {0}'}" FontAttributes="Bold" TextColor="#38BDF8" VerticalOptions="Center" />
+                                                <Label Grid.Column="1" Text="{Binding Unit}" TextColor="#CBD5E1" VerticalOptions="Center" />
+                                                <Label Grid.Column="2" Text="{Binding TotalQuantity, StringFormat='Qty: {0:0.###}'}" TextColor="#FFFFFF" VerticalOptions="Center" />
+                                                <Label Grid.Column="3" Text="{Binding TaxableValue, StringFormat='Taxable: ₹{0:N2}'}" TextColor="#E2E8F0" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                                <Label Grid.Column="4" Text="{Binding TotalTax, StringFormat='Tax: ₹{0:N2}'}" FontAttributes="Bold" TextColor="#10B981" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- TAB 2: GSTR-3B Content -->
+                <VerticalStackLayout IsVisible="{Binding IsGstr3bActive}" Spacing="16">
+                    <Border Style="{StaticResource BentoCardBorder}" Padding="16">
+                        <VerticalStackLayout Spacing="12">
+                            <Label Text="TAX LIABILITY BY GST SLAB" Style="{StaticResource CardEyebrowStyle}" />
+                            <CollectionView ItemsSource="{Binding Gstr3b.RegularSlabs}">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="rep:Gstr3bSlabSummary">
+                                        <Border BackgroundColor="#18181B" StrokeThickness="0" StrokeShape="RoundRectangle 6" Padding="12,8" Margin="0,3">
+                                            <Grid ColumnDefinitions="100,*,100,100,100" ColumnSpacing="10" VerticalOptions="Center">
+                                                <Label Grid.Column="0" Text="{Binding TaxRatePercent, StringFormat='GST {0:0.#}%'}" FontAttributes="Bold" TextColor="#38BDF8" VerticalOptions="Center" />
+                                                <Label Grid.Column="1" Text="{Binding TaxableValue, StringFormat='Taxable: ₹{0:N2}'}" TextColor="#FFFFFF" VerticalOptions="Center" />
+                                                <Label Grid.Column="2" Text="{Binding Cgst, StringFormat='CGST: ₹{0:N2}'}" TextColor="#E2E8F0" VerticalOptions="Center" />
+                                                <Label Grid.Column="3" Text="{Binding Sgst, StringFormat='SGST: ₹{0:N2}'}" TextColor="#E2E8F0" VerticalOptions="Center" />
+                                                <Label Grid.Column="4" Text="{Binding Igst, StringFormat='IGST: ₹{0:N2}'}" TextColor="#E2E8F0" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- TAB 3: Store Expenses Content -->
+                <VerticalStackLayout IsVisible="{Binding IsExpensesActive}" Spacing="16">
+                    <Border Style="{StaticResource BentoCardBorder}" Padding="16">
+                        <VerticalStackLayout Spacing="12">
+                            <Grid ColumnDefinitions="*,Auto">
+                                <Label Text="RECORDED STORE EXPENSES" Style="{StaticResource CardEyebrowStyle}" VerticalOptions="Center" />
+                                <Button Grid.Column="1" Text="+ Add Expense" Style="{StaticResource PrimaryActionButton}"
+                                        HeightRequest="36" Padding="12,0" FontSize="12"
+                                        Command="{Binding OpenAddExpenseDialogCommand}" />
+                            </Grid>
+                            <CollectionView ItemsSource="{Binding Expenses}">
+                                <CollectionView.ItemTemplate>
+                                    <DataTemplate x:DataType="exp:ExpenseDto">
+                                        <Border BackgroundColor="#18181B" StrokeThickness="0" StrokeShape="RoundRectangle 6" Padding="12,8" Margin="0,3">
+                                            <Grid ColumnDefinitions="100,120,*,100,100" ColumnSpacing="10" VerticalOptions="Center">
+                                                <Label Grid.Column="0" Text="{Binding ExpenseDate}" TextColor="#CBD5E1" VerticalOptions="Center" />
+                                                <Label Grid.Column="1" Text="{Binding CategoryName}" FontAttributes="Bold" TextColor="#38BDF8" VerticalOptions="Center" />
+                                                <Label Grid.Column="2" Text="{Binding Description}" TextColor="#FFFFFF" VerticalOptions="Center" />
+                                                <Label Grid.Column="3" Text="{Binding PaymentMode}" TextColor="#E2E8F0" VerticalOptions="Center" />
+                                                <Label Grid.Column="4" Text="{Binding Amount, StringFormat='₹{0:N2}'}" FontAttributes="Bold" TextColor="{StaticResource DangerText}" HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                            </Grid>
+                                        </Border>
+                                    </DataTemplate>
+                                </CollectionView.ItemTemplate>
+                            </CollectionView>
+                        </VerticalStackLayout>
+                    </Border>
+                </VerticalStackLayout>
+
+                <!-- Toast Banner -->
+                <Border IsVisible="{Binding ToastMessage, Converter={StaticResource IsNotNullConverter}}"
+                        BackgroundColor="#065F46" StrokeThickness="0" StrokeShape="RoundRectangle 8" Padding="14,10">
+                    <Label Text="{Binding ToastMessage}" TextColor="#A7F3D0" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                </Border>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Record Expense Dialog Overlay -->
+        <Grid Grid.RowSpan="2" IsVisible="{Binding IsAddExpenseDialogOpen}" BackgroundColor="#B0000000">
+            <Border WidthRequest="440" VerticalOptions="Center" HorizontalOptions="Center"
+                    Style="{StaticResource BentoCardBorder}" BackgroundColor="#18181B" Padding="24">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="Record Store Expense" FontSize="18" FontAttributes="Bold" TextColor="#FFFFFF" />
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Expense Amount (₹) *" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                        <Entry Text="{Binding NewExpenseAmount}" Keyboard="Numeric" HeightRequest="44" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Description / Reason *" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                        <Entry Text="{Binding NewExpenseDescription}" Placeholder="e.g. Tea &amp; snacks for staff" HeightRequest="44" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="4">
+                        <Label Text="Category" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                        <Picker ItemsSource="{Binding Categories}" ItemDisplayBinding="{Binding Name}"
+                                SelectedIndex="{Binding SelectedCategoryIndex}" Title="Select Category" />
+                    </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,8,0,0">
+                        <Button Grid.Column="0" Text="Cancel" BackgroundColor="#27272A" TextColor="#FAFAFA"
+                                Command="{Binding CloseAddExpenseDialogCommand}" />
+                        <Button Grid.Column="1" Text="Save Expense" Style="{StaticResource PrimaryActionButton}"
+                                Command="{Binding SubmitExpenseCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

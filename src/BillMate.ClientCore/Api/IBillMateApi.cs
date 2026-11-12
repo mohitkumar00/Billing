@@ -1,6 +1,7 @@
 using BillMate.Application.Common.Interfaces;
 using BillMate.Application.Features.Auth;
 using BillMate.Application.Features.Backup;
+using BillMate.Application.Features.Expenses;
 using BillMate.Application.Features.Invoices;
 using BillMate.Application.Features.Parties;
 using BillMate.Application.Features.Products;
@@ -27,6 +28,12 @@ public interface IBillMateApi
     [Get("/api/v1/products/low-stock")]
     Task<IReadOnlyList<ProductDto>> GetLowStockProductsAsync(CancellationToken ct = default);
 
+    [Post("/api/v1/products")]
+    Task<ProductDto> CreateProductAsync([Body] CreateProductCommand command, CancellationToken ct = default);
+
+    [Post("/api/v1/products/{id}/stock-adjust")]
+    Task<ProductDto> AdjustStockAsync(Guid id, [Body] StockAdjustBody body, CancellationToken ct = default);
+
     [Post("/api/v1/invoices")]
     Task<InvoiceDto> CreateInvoiceAsync([Body] CreateInvoiceCommand command, CancellationToken ct = default);
 
@@ -39,8 +46,29 @@ public interface IBillMateApi
     [Get("/api/v1/customers")]
     Task<IReadOnlyList<CustomerDto>> SearchCustomersAsync([Query] string? q = null, [Query] int limit = 50, CancellationToken ct = default);
 
+    [Post("/api/v1/customers")]
+    Task<CustomerDto> CreateCustomerAsync([Body] CreateCustomerCommand command, CancellationToken ct = default);
+
     [Get("/api/v1/reports/sales-summary")]
-    Task<SalesSummaryDto> GetSalesSummaryAsync([Query] DateTimeOffset from, [Query] DateTimeOffset to, CancellationToken ct = default);
+    Task<SalesSummaryDto> GetSalesSummaryAsync([Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset from, [Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset to, CancellationToken ct = default);
+
+    [Get("/api/v1/reports/gstr1")]
+    Task<Gstr1ReportDto> GetGstr1ReportAsync([Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset from, [Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset to, CancellationToken ct = default);
+
+    [Get("/api/v1/reports/gstr3b")]
+    Task<Gstr3bReportDto> GetGstr3bSummaryAsync([Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset from, [Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset to, CancellationToken ct = default);
+
+    [Get("/api/v1/reports/day-book")]
+    Task<DayBookReportDto> GetDayBookAsync([Query] string? date = null, CancellationToken ct = default);
+
+    [Post("/api/v1/expenses")]
+    Task<ExpenseDto> CreateExpenseAsync([Body] CreateExpenseCommand command, CancellationToken ct = default);
+
+    [Get("/api/v1/expenses")]
+    Task<IReadOnlyList<ExpenseDto>> GetExpensesAsync([Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset? from = null, [Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset? to = null, [Query] Guid? categoryId = null, CancellationToken ct = default);
+
+    [Get("/api/v1/expenses/categories")]
+    Task<IReadOnlyList<ExpenseCategoryDto>> GetExpenseCategoriesAsync(CancellationToken ct = default);
 
     [Get("/api/v1/backup/drive/list")]
     Task<IReadOnlyList<DriveBackupFileDto>> ListDriveBackupsAsync(CancellationToken ct = default);

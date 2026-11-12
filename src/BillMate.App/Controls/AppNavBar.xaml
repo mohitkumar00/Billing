@@ -1,0 +1,116 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentView xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             x:Class="BillMate.App.Controls.AppNavBar"
+             x:Name="NavBarRoot">
+
+    <Border BackgroundColor="#18181B"
+            Stroke="#27272A"
+            StrokeThickness="1"
+            Padding="14,8"
+            Margin="0,0,0,8">
+        <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="16" VerticalOptions="Center">
+
+            <!-- 1. Left: Brand Title & Logo -->
+            <HorizontalStackLayout Grid.Column="0" Spacing="10" VerticalOptions="Center">
+                <Border BackgroundColor="#0284C7"
+                        StrokeShape="RoundRectangle 8"
+                        WidthRequest="32" HeightRequest="32"
+                        VerticalOptions="Center">
+                    <Label Text="⚡" FontSize="18" TextColor="#FFFFFF"
+                           HorizontalOptions="Center" VerticalOptions="Center" />
+                </Border>
+                <VerticalStackLayout VerticalOptions="Center" Spacing="1">
+                    <Label Text="BillMate POS" FontSize="15" FontAttributes="Bold" TextColor="#FFFFFF" />
+                    <Label Text="India Retail &amp; GST" FontSize="10" FontAttributes="Bold" TextColor="#38BDF8" />
+                </VerticalStackLayout>
+            </HorizontalStackLayout>
+
+            <!-- 2. Center: Prominent Navigation Tabs -->
+            <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center" HorizontalOptions="Start">
+                <!-- Dashboard Tab -->
+                <Button x:Name="BtnDashboard"
+                        Text="📊 Dashboard"
+                        FontSize="13" FontAttributes="Bold"
+                        CornerRadius="8"
+                        Padding="14,8"
+                        MinimumHeightRequest="38"
+                        HeightRequest="38"
+                        Clicked="OnDashboardClicked" />
+
+                <!-- POS Billing Tab -->
+                <Button x:Name="BtnPos"
+                        Text="🛒 Billing (POS)"
+                        FontSize="13" FontAttributes="Bold"
+                        CornerRadius="8"
+                        Padding="14,8"
+                        MinimumHeightRequest="38"
+                        HeightRequest="38"
+                        Clicked="OnPosClicked" />
+
+                <!-- Inventory & Stock Tab -->
+                <Button x:Name="BtnInventory"
+                        Text="📦 Inventory &amp; Stock"
+                        FontSize="13" FontAttributes="Bold"
+                        CornerRadius="8"
+                        Padding="14,8"
+                        MinimumHeightRequest="38"
+                        HeightRequest="38"
+                        Clicked="OnInventoryClicked" />
+
+                <!-- Tax & Reports Tab -->
+                <Button x:Name="BtnReports"
+                        Text="📈 Tax &amp; Reports"
+                        FontSize="13" FontAttributes="Bold"
+                        CornerRadius="8"
+                        Padding="14,8"
+                        MinimumHeightRequest="38"
+                        HeightRequest="38"
+                        Clicked="OnReportsClicked" />
+
+                <!-- Restore Backup Tab -->
+                <Button x:Name="BtnRestore"
+                        Text="💾 Backup"
+                        FontSize="13" FontAttributes="Bold"
+                        CornerRadius="8"
+                        Padding="14,8"
+                        MinimumHeightRequest="38"
+                        HeightRequest="38"
+                        Clicked="OnRestoreClicked" />
+            </HorizontalStackLayout>
+
+            <!-- 3. Right: Active Cashier & Counter Status -->
+            <HorizontalStackLayout Grid.Column="2" Spacing="10" VerticalOptions="Center">
+                <!-- Cashier Quick Switch Pill -->
+                <Button x:Name="BtnCashier"
+                        Text="🔑 Cashier Switch (PIN: 1234)"
+                        FontSize="12" FontAttributes="Bold"
+                        BackgroundColor="#27272A"
+                        TextColor="#38BDF8"
+                        BorderColor="#38BDF8"
+                        BorderWidth="1"
+                        CornerRadius="8"
+                        Padding="12,6"
+                        HeightRequest="36"
+                        Clicked="OnCashierClicked"
+                        ToolTipProperties.Text="Click to switch active cashier using PIN" />
+
+                <!-- System Status Indicator -->
+                <Border BackgroundColor="#064E3B"
+                        Stroke="#10B981"
+                        StrokeThickness="1"
+                        StrokeShape="RoundRectangle 8"
+                        Padding="10,6"
+                        HeightRequest="36"
+                        VerticalOptions="Center">
+                    <HorizontalStackLayout Spacing="6" VerticalOptions="Center">
+                        <BoxView Color="#34D399" WidthRequest="8" HeightRequest="8" CornerRadius="4" VerticalOptions="Center" />
+                        <Label Text="LAN 5050" FontSize="11" FontAttributes="Bold" TextColor="#A7F3D0" VerticalOptions="Center" />
+                    </HorizontalStackLayout>
+                </Border>
+            </HorizontalStackLayout>
+
+        </Grid>
+    </Border>
+
+</ContentView>

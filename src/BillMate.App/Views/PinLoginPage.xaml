@@ -2,33 +2,101 @@
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
+             xmlns:controls="clr-namespace:BillMate.App.Controls"
              x:Class="BillMate.App.Views.PinLoginPage"
              x:DataType="vm:PinLoginViewModel"
              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
+             Shell.NavBarIsVisible="False"
              Title="Cashier PIN">
 
-    <Border Style="{StaticResource BentoCardBorder}" WidthRequest="340"
-            HorizontalOptions="Center" VerticalOptions="Center" Padding="24">
-        <VerticalStackLayout Spacing="16">
-            <Label Text="Quick Cashier Unlock" Style="{StaticResource PageTitleStyle}" HorizontalTextAlignment="Center" />
-            <Label Text="{Binding MaskedPinDots}" FontSize="28" CharacterSpacing="8"
-                   HorizontalTextAlignment="Center" Style="{StaticResource TabularMoneyStyle}" />
+    <Grid RowDefinitions="Auto,*">
+        <!-- 1. Universal Top Navigation Bar -->
+        <controls:AppNavBar Grid.Row="0" ActiveTab="PinLogin" />
 
-            <Grid ColumnDefinitions="*,*,*" RowDefinitions="48,48,48,48" ColumnSpacing="10" RowSpacing="10">
-                <Button Grid.Row="0" Grid.Column="0" Text="1" Command="{Binding AppendDigitCommand}" CommandParameter="1" />
-                <Button Grid.Row="0" Grid.Column="1" Text="2" Command="{Binding AppendDigitCommand}" CommandParameter="2" />
-                <Button Grid.Row="0" Grid.Column="2" Text="3" Command="{Binding AppendDigitCommand}" CommandParameter="3" />
-                <Button Grid.Row="1" Grid.Column="0" Text="4" Command="{Binding AppendDigitCommand}" CommandParameter="4" />
-                <Button Grid.Row="1" Grid.Column="1" Text="5" Command="{Binding AppendDigitCommand}" CommandParameter="5" />
-                <Button Grid.Row="1" Grid.Column="2" Text="6" Command="{Binding AppendDigitCommand}" CommandParameter="6" />
-                <Button Grid.Row="2" Grid.Column="0" Text="7" Command="{Binding AppendDigitCommand}" CommandParameter="7" />
-                <Button Grid.Row="2" Grid.Column="1" Text="8" Command="{Binding AppendDigitCommand}" CommandParameter="8" />
-                <Button Grid.Row="2" Grid.Column="2" Text="9" Command="{Binding AppendDigitCommand}" CommandParameter="9" />
-                <Button Grid.Row="3" Grid.Column="0" Text="⌫" Command="{Binding BackspaceCommand}" />
-                <Button Grid.Row="3" Grid.Column="1" Text="0" Command="{Binding AppendDigitCommand}" CommandParameter="0" />
-                <Button Grid.Row="3" Grid.Column="2" Text="OK" Style="{StaticResource PrimaryActionButton}"
-                        Command="{Binding SubmitPinCommand}" />
-            </Grid>
-        </VerticalStackLayout>
-    </Border>
+        <!-- 2. PIN Unlock Form -->
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Spacing="16" HorizontalOptions="Center" VerticalOptions="Center" Padding="16">
+
+                <Border Style="{StaticResource BentoCardBorder}" WidthRequest="380" Padding="24">
+                    <VerticalStackLayout Spacing="16">
+                        <Label Text="Quick Cashier Switch" Style="{StaticResource PageTitleStyle}" HorizontalTextAlignment="Center" />
+                        <Label Text="Enter 4-digit PIN (Default: 1234)" FontSize="13" FontAttributes="Bold" TextColor="#38BDF8" HorizontalTextAlignment="Center" />
+
+                        <!-- Cashier Selection Chips -->
+                        <HorizontalStackLayout Spacing="8" HorizontalOptions="Center">
+                            <Button Text="👤 Ramesh (Cashier)" FontSize="11" FontAttributes="Bold"
+                                    BackgroundColor="#1E293B" TextColor="#38BDF8" BorderColor="#38BDF8" BorderWidth="1"
+                                    CornerRadius="16" HeightRequest="32" Padding="12,0"
+                                    Clicked="OnSelectCashierClicked" />
+                            <Button Text="👑 Admin (Owner)" FontSize="11" FontAttributes="Bold"
+                                    BackgroundColor="#27272A" TextColor="#A1A1AA"
+                                    CornerRadius="16" HeightRequest="32" Padding="12,0"
+                                    Clicked="OnSelectAdminClicked" />
+                        </HorizontalStackLayout>
+
+                        <!-- Masked Dots Display -->
+                        <Border BackgroundColor="#09090B" Stroke="#3F3F46" StrokeThickness="1" StrokeShape="RoundRectangle 12" Padding="12,8">
+                            <Label Text="{Binding MaskedPinDots}" FontSize="32" CharacterSpacing="12"
+                                   HorizontalTextAlignment="Center" Style="{StaticResource TabularMoneyStyle}" TextColor="#38BDF8" />
+                        </Border>
+
+                        <!-- Keypad Grid -->
+                        <Grid ColumnDefinitions="*,*,*" RowDefinitions="52,52,52,52" ColumnSpacing="10" RowSpacing="10">
+                            <Button Grid.Row="0" Grid.Column="0" Text="1" FontSize="20" FontAttributes="Bold" Command="{Binding AppendDigitCommand}" CommandParameter="1" BackgroundColor="#27272A" TextColor="#FFFFFF" CornerRadius="8" />
+                            <Button Grid.Row="0" Grid.Column="1" Text="2" FontSize="20" FontAttributes="Bold" Command="{Binding AppendDigitCommand}" CommandParameter="2" BackgroundColor="#27272A" TextColor="#FFFFFF" CornerRadius="8" />
+                            <Button Grid.Row="0" Grid.Column="2" Text="3" FontSize="20" FontAttributes="Bold" Command="{Binding AppendDigitCommand}" CommandParameter="3" BackgroundColor="#27272A" TextColor="#FFFFFF" CornerRadius="8" />
+                            <Button Grid.Row="1" Grid.Column="0" Text="4" FontSize="20" FontAttributes="Bold" Command="{Binding AppendDigitCommand}" CommandParameter="4" BackgroundColor="#27272A" TextColor="#FFFFFF" CornerRadius="8" />
+                            <Button Grid.Row="1" Grid.Column="1" Text="5" FontSize="20" FontAttributes="Bold" Command="{Binding AppendDigitCommand}" CommandParameter="5" BackgroundColor="#27272A" TextColor="#FFFFFF" CornerRadius="8" />
+                            <Button Grid.Row="1" Grid.Column="2" Text="6" FontSize="20" FontAttributes="Bold" Command="{Binding AppendDigitCommand}" CommandParameter="6" BackgroundColor="#27272A" TextColor="#FFFFFF" CornerRadius="8" />
+                            <Button Grid.Row="2" Grid.Column="0" Text="7" FontSize="20" FontAttributes="Bold" Command="{Binding AppendDigitCommand}" CommandParameter="7" BackgroundColor="#27272A" TextColor="#FFFFFF" CornerRadius="8" />
+                            <Button Grid.Row="2" Grid.Column="1" Text="8" FontSize="20" FontAttributes="Bold" Command="{Binding AppendDigitCommand}" CommandParameter="8" BackgroundColor="#27272A" TextColor="#FFFFFF" CornerRadius="8" />
+                            <Button Grid.Row="2" Grid.Column="2" Text="9" FontSize="20" FontAttributes="Bold" Command="{Binding AppendDigitCommand}" CommandParameter="9" BackgroundColor="#27272A" TextColor="#FFFFFF" CornerRadius="8" />
+                            <Button Grid.Row="3" Grid.Column="0" Text="⌫" FontSize="20" FontAttributes="Bold" BackgroundColor="#3F3F46" TextColor="#FAFAFA" Command="{Binding BackspaceCommand}" CornerRadius="8" />
+                            <Button Grid.Row="3" Grid.Column="1" Text="0" FontSize="20" FontAttributes="Bold" Command="{Binding AppendDigitCommand}" CommandParameter="0" BackgroundColor="#27272A" TextColor="#FFFFFF" CornerRadius="8" />
+                            <Button Grid.Row="3" Grid.Column="2" Text="OK" FontSize="16" FontAttributes="Bold" Style="{StaticResource PrimaryActionButton}"
+                                    Command="{Binding SubmitPinCommand}" CornerRadius="8" />
+                        </Grid>
+
+                        <ActivityIndicator IsRunning="{Binding IsLoading}" IsVisible="{Binding IsLoading}"
+                                           Color="{StaticResource BrandPrimary}" HeightRequest="24" WidthRequest="24" HorizontalOptions="Center" />
+
+                        <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource DangerText}"
+                               IsVisible="{Binding HasError}" HorizontalTextAlignment="Center" FontSize="13" FontAttributes="Bold" />
+
+                        <Label Text="{Binding ToastMessage}" TextColor="{StaticResource SuccessText}"
+                               IsVisible="{Binding ToastMessage, Converter={StaticResource IsNotNullConverter}}" HorizontalTextAlignment="Center" FontSize="13" FontAttributes="Bold" />
+
+                        <!-- Escape Hatch: Return to POS -->
+                        <Button Text="← Back to Billing (POS)" BackgroundColor="Transparent" TextColor="#38BDF8"
+                                FontSize="14" FontAttributes="Bold"
+                                Command="{Binding CancelAndBackCommand}" />
+
+                        <!-- Server Address Link (For Android & LAN Wi-Fi Counters) -->
+                        <Button Text="{Binding ServerAddress, StringFormat='⚙️ Server: {0}'}"
+                                FontSize="11" BackgroundColor="Transparent" TextColor="#94A3B8"
+                                Command="{Binding ToggleServerSettingsCommand}" />
+                    </VerticalStackLayout>
+                </Border>
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Server Address Configuration Modal -->
+        <Grid Grid.RowSpan="2" IsVisible="{Binding IsServerSettingsOpen}" BackgroundColor="#B0000000">
+            <Border Style="{StaticResource BentoCardBorder}" WidthRequest="340"
+                    HorizontalOptions="Center" VerticalOptions="Center" BackgroundColor="#18181B" Padding="20">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="Configure Server Address" FontSize="16" FontAttributes="Bold" TextColor="#FFFFFF" />
+                    <Label Text="For Android / LAN tablet, enter the Windows PC IP (e.g. http://192.168.1.100:5050):"
+                           FontSize="12" TextColor="#CBD5E1" />
+                    <Entry Text="{Binding ServerAddress}" Placeholder="http://192.168.1.100:5050" HeightRequest="44" />
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="10">
+                        <Button Grid.Column="0" Text="Cancel" BackgroundColor="#27272A" TextColor="#FAFAFA"
+                                Command="{Binding ToggleServerSettingsCommand}" />
+                        <Button Grid.Column="1" Text="Save" Style="{StaticResource PrimaryActionButton}"
+                                Command="{Binding SaveServerAddressCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
 </ContentPage>

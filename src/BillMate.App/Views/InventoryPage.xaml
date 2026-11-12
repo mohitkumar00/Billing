@@ -1,0 +1,263 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+              xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
+              xmlns:prod="clr-namespace:BillMate.Application.Features.Products;assembly=BillMate.Application"
+              xmlns:controls="clr-namespace:BillMate.App.Controls"
+              x:Class="BillMate.App.Views.InventoryPage"
+              x:Name="InventoryRoot"
+              x:DataType="vm:InventoryViewModel"
+              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
+              Shell.NavBarIsVisible="False"
+              Title="Inventory &amp; Stock">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- 1. Universal Top Navigation Bar -->
+        <controls:AppNavBar Grid.Row="0" ActiveTab="Inventory" />
+
+        <!-- 2. Main Content -->
+        <ScrollView Grid.Row="1" Padding="20">
+            <VerticalStackLayout Spacing="18">
+
+                <!-- Header & Action Row -->
+                <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto" RowSpacing="6">
+                    <VerticalStackLayout Grid.Column="0">
+                        <Label Text="📦 Inventory &amp; Stock" Style="{StaticResource PageTitleStyle}" />
+                        <Label Text="Track live counter stock, receive supplier inward deliveries, and adjust quantities."
+                               FontSize="13" TextColor="#A1A1AA" />
+                    </VerticalStackLayout>
+                    <HorizontalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
+                        <Button Text="🛒 Go to POS Bill" BackgroundColor="#1565C0" TextColor="#FFFFFF" FontAttributes="Bold" CornerRadius="8"
+                                Command="{Binding NavigateToPosCommand}" />
+                        <Button Text="↻ Refresh" BackgroundColor="#27272A" TextColor="#FAFAFA" CornerRadius="8"
+                                Command="{Binding LoadInventoryCommand}" />
+                        <Button Text="+ Add New Product" Style="{StaticResource PrimaryActionButton}"
+                                Command="{Binding OpenNewProductDialogCommand}" />
+                    </HorizontalStackLayout>
+                </Grid>
+
+                <!-- Search & Filters -->
+                <Border Style="{StaticResource BentoCardBorder}" Padding="12">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
+                        <Entry Placeholder="Search by product name, SKU, or scan barcode..."
+                               Text="{Binding SearchQuery}" MinimumHeightRequest="44" />
+                        <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                            <Button Text="All Items" CornerRadius="8" Padding="14,0" HeightRequest="38"
+                                    BackgroundColor="#27272A" TextColor="#FAFAFA"
+                                    Clicked="OnFilterAllClicked" />
+                            <Button Text="⚠️ Low Stock" CornerRadius="8" Padding="14,0" HeightRequest="38"
+                                    BackgroundColor="#3F3F46" TextColor="#FBBF24"
+                                    Clicked="OnFilterLowStockClicked" />
+                            <Button Text="❌ Out of Stock" CornerRadius="8" Padding="14,0" HeightRequest="38"
+                                    BackgroundColor="#3F3F46" TextColor="#F87171"
+                                    Clicked="OnFilterOutOfStockClicked" />
+                        </HorizontalStackLayout>
+                    </Grid>
+                </Border>
+
+                <!-- Toast Banner -->
+                <Border IsVisible="{Binding ToastMessage, Converter={StaticResource IsNotNullConverter}}"
+                        BackgroundColor="#065F46" StrokeThickness="0" StrokeShape="RoundRectangle 8" Padding="14,10">
+                    <Label Text="{Binding ToastMessage}" TextColor="#A7F3D0" FontAttributes="Bold" HorizontalTextAlignment="Center" />
+                </Border>
+
+                <!-- Product Catalog List -->
+                <CollectionView ItemsSource="{Binding FilteredProducts}" SelectionMode="None">
+                    <CollectionView.ItemsLayout>
+                        <LinearItemsLayout Orientation="Vertical" ItemSpacing="8" />
+                    </CollectionView.ItemsLayout>
+                    <CollectionView.ItemTemplate>
+                        <DataTemplate x:DataType="prod:ProductDto">
+                            <Border Style="{StaticResource BentoCardBorder}" Padding="16,12">
+                                <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="14" VerticalOptions="Center">
+
+                                    <!-- Product Thumbnail Image -->
+                                    <Border Grid.Column="0" WidthRequest="48" HeightRequest="48" StrokeShape="RoundRectangle 8"
+                                            BackgroundColor="#27272A" Stroke="#3F3F46" StrokeThickness="1" VerticalOptions="Center">
+                                        <Grid>
+                                            <Label Text="📦" FontSize="20" HorizontalOptions="Center" VerticalOptions="Center" />
+                                            <Image Source="{Binding ImagePath}" Aspect="AspectFill" WidthRequest="48" HeightRequest="48" />
+                                        </Grid>
+                                    </Border>
+
+                                    <!-- Product Info -->
+                                    <VerticalStackLayout Grid.Column="1" Spacing="3">
+                                        <Label Text="{Binding Name}" FontSize="15" FontAttributes="Bold" TextColor="#FFFFFF" />
+                                        <HorizontalStackLayout Spacing="8">
+                                            <Label Text="{Binding Sku, StringFormat='SKU: {0}'}" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                                            <Label Text="•" FontSize="12" TextColor="#94A3B8" />
+                                            <Label Text="{Binding Barcode, StringFormat='Barcode: {0}'}" FontSize="12" TextColor="#E2E8F0" />
+                                            <Label Text="•" FontSize="12" TextColor="#94A3B8" />
+                                            <Label Text="{Binding GstRate, StringFormat='GST: {0}%'}" FontSize="12" FontAttributes="Bold" TextColor="#38BDF8" />
+                                        </HorizontalStackLayout>
+                                    </VerticalStackLayout>
+
+                                    <!-- Price -->
+                                    <VerticalStackLayout Grid.Column="2" VerticalOptions="Center" HorizontalOptions="End" Spacing="2">
+                                        <Label Text="{Binding SellingPrice, StringFormat='₹{0:N2}'}" FontSize="17"
+                                               Style="{StaticResource TabularMoneyStyle}" HorizontalTextAlignment="End" />
+                                        <Label Text="{Binding Mrp, StringFormat='MRP ₹{0:N2}'}" FontSize="12"
+                                               TextColor="#CBD5E1" HorizontalTextAlignment="End" />
+                                    </VerticalStackLayout>
+
+                                    <!-- Stock Status Badge -->
+                                    <Border Grid.Column="3" StrokeThickness="0" StrokeShape="RoundRectangle 8"
+                                            BackgroundColor="{Binding CurrentStock, Converter={StaticResource StockBadgeBgConverter}}"
+                                            Padding="12,6" VerticalOptions="Center" WidthRequest="110">
+                                        <VerticalStackLayout HorizontalOptions="Center">
+                                            <Label Text="{Binding CurrentStock, StringFormat='{0:0.#} In Stock'}"
+                                                   FontAttributes="Bold" FontSize="12"
+                                                   TextColor="{Binding CurrentStock, Converter={StaticResource StockBadgeTextConverter}}"
+                                                   HorizontalTextAlignment="Center" />
+                                            <Label Text="{Binding LowStockThreshold, StringFormat='Min: {0:0.#}'}"
+                                                   FontSize="11" TextColor="#D4D4D8" HorizontalTextAlignment="Center" />
+                                        </VerticalStackLayout>
+                                    </Border>
+
+                                    <!-- Stock Adjustment Action Buttons -->
+                                    <HorizontalStackLayout Grid.Column="4" Spacing="6" VerticalOptions="Center">
+                                        <Button Text="+10 Inward" BackgroundColor="#10B981" TextColor="#064E3B" FontAttributes="Bold"
+                                                CornerRadius="6" HeightRequest="36" Padding="10,0" FontSize="12"
+                                                CommandParameter="{Binding .}"
+                                                Clicked="OnQuickAddClicked" />
+                                        <Button Text="-1 Deduct" BackgroundColor="#EF4444" TextColor="#7F1D1D" FontAttributes="Bold"
+                                                CornerRadius="6" HeightRequest="36" Padding="10,0" FontSize="12"
+                                                CommandParameter="{Binding .}"
+                                                Clicked="OnQuickDeductClicked" />
+                                        <Button Text="Adjust..." BackgroundColor="#27272A" TextColor="#FAFAFA"
+                                                CornerRadius="6" HeightRequest="36" Padding="10,0" FontSize="12"
+                                                CommandParameter="{Binding .}"
+                                                Clicked="OnAdjustClicked" />
+                                    </HorizontalStackLayout>
+                                </Grid>
+                            </Border>
+                        </DataTemplate>
+                    </CollectionView.ItemTemplate>
+                </CollectionView>
+
+            </VerticalStackLayout>
+        </ScrollView>
+
+        <!-- Modal 1: Custom Stock Adjustment Dialog Overlay -->
+        <Grid Grid.RowSpan="2" IsVisible="{Binding IsAdjustDialogOpen}" BackgroundColor="#80000000">
+            <Border WidthRequest="420" VerticalOptions="Center" HorizontalOptions="Center"
+                    Style="{StaticResource BentoCardBorder}" BackgroundColor="#18181B" Padding="24">
+                <VerticalStackLayout Spacing="16">
+                    <Label Text="Adjust Stock Quantity" FontSize="18" FontAttributes="Bold" />
+                    <Label Text="{Binding SelectedProduct.Name, StringFormat='Product: {0}'}" TextColor="#A1A1AA" FontSize="13" />
+                    <Label Text="{Binding SelectedProduct.CurrentStock, StringFormat='Current On-Hand Stock: {0:0.#}'}"
+                           FontSize="14" FontAttributes="Bold" TextColor="#10B981" />
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Quantity Change (+ to Add, - to Deduct):" FontSize="12" TextColor="#A1A1AA" />
+                        <Entry Text="{Binding StockDelta}" Keyboard="Numeric" HeightRequest="44" />
+                    </VerticalStackLayout>
+
+                    <VerticalStackLayout Spacing="6">
+                        <Label Text="Reason for Adjustment:" FontSize="12" TextColor="#A1A1AA" />
+                        <Entry Text="{Binding StockAdjustmentReason}" HeightRequest="44" />
+                    </VerticalStackLayout>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,8,0,0">
+                        <Button Grid.Column="0" Text="Cancel" BackgroundColor="#27272A" TextColor="#FAFAFA"
+                                Command="{Binding CloseAdjustStockCommand}" />
+                        <Button Grid.Column="1" Text="Save Change" Style="{StaticResource PrimaryActionButton}"
+                                Command="{Binding SubmitAdjustStockCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+
+        <!-- Modal 2: Add New Product Dialog Overlay -->
+        <Grid Grid.RowSpan="2" IsVisible="{Binding IsNewProductDialogOpen}" BackgroundColor="#80000000">
+            <Border WidthRequest="520" VerticalOptions="Center" HorizontalOptions="Center"
+                    Style="{StaticResource BentoCardBorder}" BackgroundColor="#18181B" Padding="24">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="Add New Product to Inventory" FontSize="18" FontAttributes="Bold" />
+
+                    <Grid ColumnDefinitions="*,*" RowDefinitions="Auto,Auto,Auto,Auto,Auto,Auto" ColumnSpacing="12" RowSpacing="10">
+                        <VerticalStackLayout Grid.Row="0" Grid.Column="0" Spacing="4">
+                            <Label Text="Product Name *" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                            <Entry Text="{Binding NewProductName}" Placeholder="e.g. Tata Salt 1kg" HeightRequest="40" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="0" Grid.Column="1" Spacing="4">
+                            <Label Text="SKU Code *" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                            <Entry Text="{Binding NewProductSku}" Placeholder="e.g. GRO-SLT-01" HeightRequest="40" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="1" Grid.Column="0" Spacing="4">
+                            <Label Text="Selling Price (₹) *" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                            <Entry Text="{Binding NewProductSellingPrice}" Keyboard="Numeric" HeightRequest="40" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="1" Grid.Column="1" Spacing="4">
+                            <Label Text="MRP (₹)" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                            <Entry Text="{Binding NewProductMrp}" Keyboard="Numeric" HeightRequest="40" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="2" Grid.Column="0" Spacing="4">
+                            <Label Text="Opening Stock *" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                            <Entry Text="{Binding NewProductOpeningStock}" Keyboard="Numeric" HeightRequest="40" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="2" Grid.Column="1" Spacing="4">
+                            <Label Text="Barcode" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                            <Entry Text="{Binding NewProductBarcode}" Placeholder="Scan or enter" HeightRequest="40" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="3" Grid.Column="0" Spacing="4">
+                            <Label Text="Low Stock Alert Threshold" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                            <Entry Text="{Binding NewProductLowStockThreshold}" Keyboard="Numeric" HeightRequest="40" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="3" Grid.Column="1" Spacing="4">
+                            <Label Text="Unit (PCS, PKT, KG, LTR)" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                            <Entry Text="{Binding NewProductUnit}" HeightRequest="40" />
+                        </VerticalStackLayout>
+
+                        <VerticalStackLayout Grid.Row="4" Grid.ColumnSpan="2" Spacing="4">
+                            <Label Text="GST Tax Slab (Select Tax Rate)" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                            <Picker SelectedIndex="{Binding SelectedTaxSlabIndex}" Title="Select GST Tax Slab">
+                                <Picker.ItemsSource>
+                                    <x:Array Type="{x:Type x:String}">
+                                        <x:String>GST 0% (Exempt)</x:String>
+                                        <x:String>GST 5% (Essentials / Apparels)</x:String>
+                                        <x:String>GST 12% (Packaged Foods / Hardware)</x:String>
+                                        <x:String>GST 18% (Standard / Electronics / Services)</x:String>
+                                        <x:String>GST 28% (Aerated Drinks / Luxury)</x:String>
+                                    </x:Array>
+                                </Picker.ItemsSource>
+                            </Picker>
+                        </VerticalStackLayout>
+
+                        <!-- Product Image Selection -->
+                        <VerticalStackLayout Grid.Row="5" Grid.ColumnSpan="2" Spacing="4">
+                            <Label Text="Product Photo (Browse or Enter Path)" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                            <Grid ColumnDefinitions="Auto,*,Auto" ColumnSpacing="10" VerticalOptions="Center">
+                                <Border WidthRequest="44" HeightRequest="44" StrokeShape="RoundRectangle 8"
+                                        BackgroundColor="#27272A" Stroke="#52525B" StrokeThickness="1">
+                                    <Grid>
+                                        <Label Text="📷" FontSize="18" HorizontalOptions="Center" VerticalOptions="Center" />
+                                        <Image Source="{Binding NewProductImagePath}" Aspect="AspectFill" WidthRequest="44" HeightRequest="44" />
+                                    </Grid>
+                                </Border>
+                                <Entry Grid.Column="1" Text="{Binding NewProductImagePath}" Placeholder="Image file path or URL..." HeightRequest="40" />
+                                <Button Grid.Column="2" Text="Browse..." BackgroundColor="#3F3F46" TextColor="#FFFFFF"
+                                        CornerRadius="8" HeightRequest="40" Padding="12,0"
+                                        Clicked="OnPickImageClicked" />
+                            </Grid>
+                        </VerticalStackLayout>
+                    </Grid>
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="12" Margin="0,8,0,0">
+                        <Button Grid.Column="0" Text="Cancel" BackgroundColor="#27272A" TextColor="#FAFAFA"
+                                Command="{Binding CloseNewProductDialogCommand}" />
+                        <Button Grid.Column="1" Text="Create Product" Style="{StaticResource PrimaryActionButton}"
+                                Command="{Binding SubmitNewProductCommand}" />
+                    </Grid>
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

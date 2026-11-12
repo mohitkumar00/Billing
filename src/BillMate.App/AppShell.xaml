@@ -3,23 +3,35 @@
        xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
        xmlns:views="clr-namespace:BillMate.App.Views"
        x:Class="BillMate.App.AppShell"
-       FlyoutBehavior="{OnIdiom Desktop=Locked, Tablet=Locked, Phone=Disabled}"
-       FlyoutWidth="220"
-       Title="BillMate Billing">
+       FlyoutBehavior="Disabled"
+       Shell.NavBarIsVisible="False"
+       Shell.BackgroundColor="#09090B"
+       Shell.ForegroundColor="#FFFFFF"
+       Shell.TitleColor="#FFFFFF"
+       Title="BillMate Retail POS &amp; Billing">
 
-    <FlyoutItem Title="Dashboard" Route="dashboard">
+    <FlyoutItem Route="dashboard">
         <ShellContent ContentTemplate="{DataTemplate views:DashboardPage}" />
     </FlyoutItem>
 
-    <FlyoutItem Title="New Bill (POS)" Route="pos">
+    <FlyoutItem Route="pos">
         <ShellContent ContentTemplate="{DataTemplate views:PosPage}" />
     </FlyoutItem>
 
-    <FlyoutItem Title="Restore Backup" Route="restore">
+    <FlyoutItem Route="inventory">
+        <ShellContent ContentTemplate="{DataTemplate views:InventoryPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Route="reports">
+        <ShellContent ContentTemplate="{DataTemplate views:ReportsPage}" />
+    </FlyoutItem>
+
+    <FlyoutItem Route="restore">
         <ShellContent ContentTemplate="{DataTemplate views:RestoreWizardPage}" />
     </FlyoutItem>
 
-    <FlyoutItem Title="Quick PIN Switch" Route="pinlogin">
+    <FlyoutItem Route="pinlogin">
         <ShellContent ContentTemplate="{DataTemplate views:PinLoginPage}" />
     </FlyoutItem>
+
 </Shell>

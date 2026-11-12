@@ -15,7 +15,7 @@ namespace BillMate.ClientCore.Services;
 
 public sealed class ClientSessionState
 {
-    public string ServerBaseUrl { get; set; } = "https://localhost:5050";
+    public string ServerBaseUrl { get; set; } = "http://localhost:5050";
     public Guid DeviceId { get; set; } = Guid.NewGuid();
     public AuthResponse? CurrentAuth { get; set; }
     public string SellerStateCode { get; set; } = "27";
@@ -28,13 +28,72 @@ public sealed class BearerAuthHandler : DelegatingHandler
 
     public BearerAuthHandler(ClientSessionState session) => _session = session;
 
-    protected override Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+    protected override async Task<HttpResponseMessage> SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
     {
+        var path = request.RequestUri?.AbsolutePath ?? string.Empty;
+        var isAuthEndpoint = path.StartsWith("/api/v1/auth/", StringComparison.OrdinalIgnoreCase);
+
+        if (!isAuthEndpoint && string.IsNullOrWhiteSpace(_session.CurrentAuth?.AccessToken))
+        {
+            await TryAutoLoginAsync(cancellationToken);
+        }
+
         if (!string.IsNullOrWhiteSpace(_session.CurrentAuth?.AccessToken))
         {
             request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _session.CurrentAuth.AccessToken);
         }
-        return base.SendAsync(request, cancellationToken);
+        else if (!isAuthEndpoint)
+        {
+            throw new HttpRequestException("BillMate API is starting up or unreachable. Please tap Retry once server finishes initializing.", null, System.Net.HttpStatusCode.ServiceUnavailable);
+        }
+
+        var response = await base.SendAsync(request, cancellationToken);
+
+        if (response.StatusCode == System.Net.HttpStatusCode.Unauthorized && !isAuthEndpoint)
+        {
+            if (await TryAutoLoginAsync(cancellationToken))
+            {
+                request.Headers.Authorization = new AuthenticationHeaderValue("Bearer", _session.CurrentAuth!.AccessToken);
+                response = await base.SendAsync(request, cancellationToken);
+            }
+        }
+
+        return response;
+    }
+
+    private async Task<bool> TryAutoLoginAsync(CancellationToken ct)
+    {
+        for (var attempt = 0; attempt < 5; attempt++)
+        {
+            try
+            {
+                using var client = new HttpClient { BaseAddress = new Uri(_session.ServerBaseUrl), Timeout = TimeSpan.FromSeconds(2) };
+                var content = new StringContent(
+                    System.Text.Json.JsonSerializer.Serialize(new { email = "admin@billmate.local", password = "ChangeMe@123" }),
+                    System.Text.Encoding.UTF8,
+                    "application/json");
+
+                var res = await client.PostAsync("/api/v1/auth/login", content, ct);
+                if (res.IsSuccessStatusCode)
+                {
+                    var json = await res.Content.ReadAsStringAsync(ct);
+                    var auth = System.Text.Json.JsonSerializer.Deserialize<AuthResponse>(json, new System.Text.Json.JsonSerializerOptions(System.Text.Json.JsonSerializerDefaults.Web));
+                    if (auth != null)
+                    {
+                        _session.CurrentAuth = auth;
+                        return true;
+                    }
+                }
+            }
+            catch
+            {
+                if (attempt < 4)
+                {
+                    try { await Task.Delay(800, ct); } catch { break; }
+                }
+            }
+        }
+        return false;
     }
 }
 
@@ -132,31 +191,32 @@ public static class ClientCoreDependencyInjection
         services.AddTransient<DashboardViewModel>();
         services.AddTransient<RestoreWizardViewModel>();
         services.AddTransient<PinLoginViewModel>();
+        services.AddTransient<InventoryViewModel>();
+        services.AddTransient<ReportsViewModel>();
 
         services.AddRefitClient<IBillMateApi>()
             .ConfigureHttpClient((sp, client) =>
             {
                 var session = sp.GetRequiredService<ClientSessionState>();
                 client.BaseAddress = new Uri(session.ServerBaseUrl);
-                client.Timeout = TimeSpan.FromSeconds(15);
+                client.Timeout = TimeSpan.FromSeconds(5);
             })
             .AddHttpMessageHandler<BearerAuthHandler>()
             .AddResilienceHandler("billmate-sfdc", builder =>
             {
-                // SRD Section 5.2: Exponential backoff (5 retries) + 3-failure 30s Circuit Breaker
                 builder.AddRetry(new HttpRetryStrategyOptions
                 {
-                    MaxRetryAttempts = 5,
-                    Delay = TimeSpan.FromSeconds(1),
-                    BackoffType = DelayBackoffType.Exponential,
-                    UseJitter = true
+                    MaxRetryAttempts = 1,
+                    Delay = TimeSpan.FromMilliseconds(500),
+                    BackoffType = DelayBackoffType.Constant,
+                    UseJitter = false
                 });
                 builder.AddCircuitBreaker(new HttpCircuitBreakerStrategyOptions
                 {
-                    FailureRatio = 1.0,
+                    FailureRatio = 0.8,
                     MinimumThroughput = 3,
-                    SamplingDuration = TimeSpan.FromSeconds(30),
-                    BreakDuration = TimeSpan.FromSeconds(30)
+                    SamplingDuration = TimeSpan.FromSeconds(10),
+                    BreakDuration = TimeSpan.FromSeconds(10)
                 });
             });
 

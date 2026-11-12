@@ -31,6 +31,10 @@ artifacts/
 *.jks
 AppPackages/
 BundleArtifacts/
+dist/
+*.db
+*.db-shm
+*.db-wal
 
 # OS
 .DS_Store

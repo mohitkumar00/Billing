@@ -492,27 +492,33 @@ flowchart LR
     P4["Phase 4 — Enterprise\nFuture\nMulti-branch · API\nFranchise Mode"]
 ```
 
-### Phase 1 MVP Scope
-- [ ] POS billing screen
-- [ ] Basic invoice generation (PDF + print)
-- [ ] Product catalogue (no variants)
-- [ ] Basic inventory tracking
-- [ ] Daily sales report
-- [ ] Single user, single device
+### Phase 1 MVP Scope (Completed ✅)
+- [x] POS billing screen with product search & rapid barcode scanner auto-add
+- [x] Product images attachment & visual catalog cards
+- [x] Basic invoice generation (PDF + 80mm/58mm thermal print & cash drawer pulse)
+- [x] Product catalogue & opening stock
+- [x] Inventory tracking with low stock alerts & quick ± adjustments
+- [x] Daily sales report & Day Book cash reconciliation
+- [x] Quick Cash Tender buttons (Exact, ₹100, ₹200, ₹500, ₹2000) & change calculator
+- [x] Multi-process supervisor (auto-starts PostgreSQL 16 + API sidecar)
+- [x] High-contrast AAA typography & always-visible locked sidebar
 
-### Phase 2
-- [ ] Customer management + credit
-- [ ] Expense tracking
-- [ ] Thermal printer integration
-- [ ] UPI QR on invoice
-- [ ] Multi-device sync
+### Phase 2 (Completed ✅)
+- [x] Customer management + credit ledger
+- [x] Expense tracking & petty cash categories
+- [x] Thermal printer integration (ESC/POS)
+- [x] UPI, Card, Cash & Credit payment modes
+- [x] Multi-device sync (SignalR + SQLite WAL offline queue)
+- [x] Multi-user roles & cashier PIN quick switch (PIN: 1234)
+- [x] GST reports (GSTR-1 and GSTR-3B tax summaries ready for CA)
+- [x] Android APK build script (`scripts/build-android.ps1`) & Wi-Fi LAN IP server configuration
 
-### Phase 3
-- [ ] Multi-user roles & permissions
+### Phase 3 (Roadmap v2.0)
 - [ ] WhatsApp invoice sharing
-- [ ] GST reports (GSTR-1 ready)
-- [ ] Tally XML export
-- [ ] White-label configuration
+- [ ] Restaurant KOT & Table management
+- [ ] Live NIC e-Way Bill API integration
+- [ ] External Pole / Customer VFD secondary display
+- [ ] Tally XML export format
 
 ---
 

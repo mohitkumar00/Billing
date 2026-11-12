@@ -1,37 +1,67 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
-             xmlns:controls="clr-namespace:BillMate.App.Controls"
-             x:Class="BillMate.App.Views.DashboardPage"
-             x:DataType="vm:DashboardViewModel"
-             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
-             Title="Dashboard">
+              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+              xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
+              xmlns:controls="clr-namespace:BillMate.App.Controls"
+              xmlns:inv="clr-namespace:BillMate.Application.Features.Invoices;assembly=BillMate.Application"
+              x:Class="BillMate.App.Views.DashboardPage"
+              x:DataType="vm:DashboardViewModel"
+              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
+              Shell.NavBarIsVisible="False"
+              Title="Dashboard">
 
-    <ScrollView Padding="24">
-        <VerticalStackLayout Spacing="24">
-            <!-- Header + Command Search Bar -->
+    <Grid RowDefinitions="Auto,*">
+        <!-- 1. Universal Top Navigation Bar -->
+        <controls:AppNavBar Grid.Row="0" ActiveTab="Dashboard" />
+
+        <!-- 2. Dashboard Content -->
+        <ScrollView Grid.Row="1" Padding="20">
+            <VerticalStackLayout Spacing="20">
+            <!-- Header + Quick Navigation / Search -->
             <Grid ColumnDefinitions="*,Auto" ColumnSpacing="16">
                 <VerticalStackLayout Spacing="4">
                     <Label Text="Store Overview" Style="{StaticResource PageTitleStyle}" />
-                    <Label Text="Real-time local LAN counter summary &amp; GST readiness" FontSize="13"
+                    <Label Text="Real-time local counter summary, inventory status &amp; GST readiness" FontSize="13"
                            TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}" />
                 </VerticalStackLayout>
                 <HorizontalStackLayout Grid.Column="1" Spacing="12" VerticalOptions="Center">
-                    <SearchBar Placeholder="Quick Command (Ctrl+K)..." WidthRequest="{OnIdiom Desktop=280, Tablet=240, Phone=160}"
+                    <SearchBar Placeholder="Quick Search..." WidthRequest="{OnIdiom Desktop=240, Tablet=200, Phone=150}"
                                Text="{Binding CommandSearchQuery}" />
                     <Button Text="Sync Now" Style="{StaticResource PrimaryActionButton}"
                             Command="{Binding SyncOfflineQueueCommand}" />
                 </HorizontalStackLayout>
             </Grid>
 
+            <!-- Quick Action Navigation Toolbar -->
+            <FlexLayout Wrap="Wrap" JustifyContent="Start" AlignItems="Center">
+                <Button Text="🛒  New Bill (POS)" Style="{StaticResource PrimaryActionButton}"
+                        Command="{Binding NavigateToPosCommand}" Margin="0,0,10,10"
+                        ToolTipProperties.Text="Open POS billing counter (F2)" />
+                <Button Text="📦  Inventory &amp; Stock" BackgroundColor="#27272A" TextColor="#FAFAFA"
+                        FontAttributes="Bold" FontSize="14" CornerRadius="12" MinimumHeightRequest="48" Padding="18,12"
+                        Command="{Binding NavigateToInventoryCommand}" Margin="0,0,10,10"
+                        ToolTipProperties.Text="View, add and adjust stock (F4)" />
+                <Button Text="📈  GST Reports &amp; Day Book" BackgroundColor="#27272A" TextColor="#FAFAFA"
+                        FontAttributes="Bold" FontSize="14" CornerRadius="12" MinimumHeightRequest="48" Padding="18,12"
+                        Command="{Binding NavigateToReportsCommand}" Margin="0,0,10,10"
+                        ToolTipProperties.Text="GSTR-1, GSTR-3B, Day Book &amp; Expenses (F5)" />
+                <Button Text="🔑  Cashier Switch (PIN: 1234)" BackgroundColor="#27272A" TextColor="#FAFAFA"
+                        FontAttributes="Bold" FontSize="14" CornerRadius="12" MinimumHeightRequest="48" Padding="18,12"
+                        Command="{Binding NavigateToPinLoginCommand}" Margin="0,0,10,10"
+                        ToolTipProperties.Text="Switch cashier using PIN 1234" />
+                <Button Text="💾  Cloud Backup &amp; Restore" BackgroundColor="#27272A" TextColor="#A1A1AA"
+                        FontAttributes="Bold" FontSize="14" CornerRadius="12" MinimumHeightRequest="48" Padding="18,12"
+                        Command="{Binding NavigateToRestoreCommand}" Margin="0,0,10,10"
+                        ToolTipProperties.Text="Google Drive backup &amp; restore (F8)" />
+            </FlexLayout>
+
             <!-- Error Banner State -->
-            <Border IsVisible="{Binding HasError}" BackgroundColor="{StaticResource DangerBg}"
-                    Stroke="{StaticResource DangerText}" StrokeShape="RoundRectangle 12" Padding="16">
+            <Border IsVisible="{Binding HasError}" BackgroundColor="#1AF43F5E"
+                    Stroke="#F43F5E" StrokeThickness="1" StrokeShape="RoundRectangle 12" Padding="16">
                 <Grid ColumnDefinitions="*,Auto" ColumnSpacing="12">
-                    <Label Text="{Binding ErrorMessage}" TextColor="{StaticResource DangerText}" VerticalOptions="Center" />
+                    <Label Text="{Binding ErrorMessage}" TextColor="#F43F5E" VerticalOptions="Center" />
                     <Button Grid.Column="1" Text="Retry" Command="{Binding LoadDashboardCommand}"
-                            BackgroundColor="{StaticResource DangerText}" TextColor="White" CornerRadius="8" />
+                            BackgroundColor="#F43F5E" TextColor="White" CornerRadius="8" />
                 </Grid>
             </Border>
 
@@ -50,10 +80,13 @@
                   ColumnSpacing="16" RowSpacing="16">
 
                 <Border Grid.Column="0" Grid.Row="0" Style="{StaticResource BentoCardBorder}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding NavigateToPosCommand}" />
+                    </Border.GestureRecognizers>
                     <VerticalStackLayout Spacing="8">
                         <Label Text="TODAY'S GROSS SALES" Style="{StaticResource CardEyebrowStyle}" />
                         <Label Text="{Binding TodaySalesTotal, StringFormat='₹{0:N2}'}" FontSize="28" Style="{StaticResource TabularMoneyStyle}" />
-                        <Label Text="{Binding TodayInvoiceCount, StringFormat='{0} bills generated'}" FontSize="12" TextColor="{StaticResource SuccessText}" />
+                        <Label Text="{Binding TodayInvoiceCount, StringFormat='{}{0} bills generated (Click to open POS)'}" FontSize="12" TextColor="{StaticResource SuccessText}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -66,10 +99,13 @@
                 </Border>
 
                 <Border Grid.Column="{OnIdiom Desktop=2, Tablet=0, Phone=0}" Grid.Row="{OnIdiom Desktop=0, Tablet=1, Phone=2}" Style="{StaticResource BentoCardBorder}">
+                    <Border.GestureRecognizers>
+                        <TapGestureRecognizer Command="{Binding NavigateToInventoryCommand}" />
+                    </Border.GestureRecognizers>
                     <VerticalStackLayout Spacing="8">
                         <Label Text="LOW STOCK ALERTS" Style="{StaticResource CardEyebrowStyle}" />
                         <Label Text="{Binding LowStockCount}" FontSize="28" Style="{StaticResource TabularMoneyStyle}" />
-                        <Label Text="Items below reorder point" FontSize="12" TextColor="{StaticResource WarningText}" />
+                        <Label Text="Items below reorder (Click to manage stock →)" FontSize="12" TextColor="{StaticResource WarningText}" />
                     </VerticalStackLayout>
                 </Border>
 
@@ -83,10 +119,55 @@
             </Grid>
 
             <!-- Empty State when no bills exist yet -->
-            <controls:EmptyStateView IsVisible="{Binding IsEmpty}"
-                                     Title="No bills created today"
-                                     Description="Head to the POS counter to scan items and generate your first GST Tax Invoice."
-                                     ActionText="Open POS Counter" />
+            <Border IsVisible="{Binding IsEmpty}" Style="{StaticResource BentoCardBorder}" Padding="24">
+                <VerticalStackLayout Spacing="16" HorizontalOptions="Center">
+                    <Label Text="🏪" FontSize="36" HorizontalOptions="Center" />
+                    <Label Text="Ready for Billing &amp; Counter Operations" FontSize="18" FontAttributes="Bold" HorizontalOptions="Center" />
+                    <Label Text="Select an action below to start counter billing or manage store inventory:" TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}" HorizontalOptions="Center" />
+                    <HorizontalStackLayout Spacing="12" HorizontalOptions="Center">
+                        <Button Text="🛒 Open POS Counter" Style="{StaticResource PrimaryActionButton}" Command="{Binding NavigateToPosCommand}" />
+                        <Button Text="📦 Manage Stock &amp; Inventory" BackgroundColor="#27272A" TextColor="#FAFAFA" FontAttributes="Bold" CornerRadius="12" Padding="16,12" Command="{Binding NavigateToInventoryCommand}" />
+                    </HorizontalStackLayout>
+                </VerticalStackLayout>
+            </Border>
+
+            <!-- Recent Invoices List when bills exist -->
+            <Border IsVisible="{Binding IsEmpty, Converter={StaticResource InvertedBoolConverter}}"
+                    Style="{StaticResource BentoCardBorder}" Padding="20">
+                <VerticalStackLayout Spacing="16">
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="RECENT COUNTER INVOICES" Style="{StaticResource CardEyebrowStyle}" VerticalOptions="Center" />
+                        <Button Grid.Column="1" Text="+ New Bill (POS)" Style="{StaticResource PrimaryActionButton}"
+                                Command="{Binding NavigateToPosCommand}" HeightRequest="36" Padding="14,0" FontSize="13" />
+                    </Grid>
+
+                    <CollectionView ItemsSource="{Binding RecentInvoices}">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="inv:InvoiceSummaryDto">
+                                <Border StrokeThickness="0" StrokeShape="RoundRectangle 8"
+                                        BackgroundColor="{AppThemeBinding Light=#08000000, Dark=#14FFFFFF}"
+                                        Padding="14,12" Margin="0,4">
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="16" VerticalOptions="Center">
+                                        <Label Grid.Column="0" Text="{Binding InvoiceNumber}" FontAttributes="Bold" FontSize="14" VerticalOptions="Center" />
+                                        <Label Grid.Column="1" Text="{Binding InvoiceDate, StringFormat='{}{0:dd MMM yyyy, hh:mm tt}'}"
+                                               FontSize="12" TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}"
+                                               VerticalOptions="Center" />
+                                        <Border Grid.Column="2" StrokeThickness="0" StrokeShape="RoundRectangle 6"
+                                                BackgroundColor="{AppThemeBinding Light=#E0E7FF, Dark=#1E293B}" Padding="8,4" VerticalOptions="Center">
+                                            <Label Text="{Binding Status}" FontSize="11" FontAttributes="Bold"
+                                                   TextColor="{StaticResource BrandPrimary}" />
+                                        </Border>
+                                        <Label Grid.Column="3" Text="{Binding GrandTotal, StringFormat='₹{0:N2}'}"
+                                               Style="{StaticResource TabularMoneyStyle}" FontSize="15" FontAttributes="Bold"
+                                               HorizontalTextAlignment="End" VerticalOptions="Center" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
         </VerticalStackLayout>
     </ScrollView>
+    </Grid>
 </ContentPage>

@@ -1,26 +1,36 @@
 <?xml version="1.0" encoding="UTF-8" ?>
 <ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
-             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
-             xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
-             xmlns:prod="clr-namespace:BillMate.Application.Features.Products;assembly=BillMate.Application"
-             x:Class="BillMate.App.Views.PosPage"
-             x:DataType="vm:PosViewModel"
-             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
-             Title="POS Billing">
+              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+              xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
+              xmlns:prod="clr-namespace:BillMate.Application.Features.Products;assembly=BillMate.Application"
+              xmlns:enums="clr-namespace:BillMate.Domain.Enums;assembly=BillMate.Domain"
+              xmlns:controls="clr-namespace:BillMate.App.Controls"
+              x:Class="BillMate.App.Views.PosPage"
+              x:Name="PosRoot"
+              x:DataType="vm:PosViewModel"
+              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
+              Shell.NavBarIsVisible="False"
+              Title="POS Billing">
 
-    <Grid ColumnDefinitions="{OnIdiom Desktop='*,420', Tablet='*,360', Phone='*'}"
-          RowDefinitions="{OnIdiom Desktop='*', Tablet='*', Phone='*,Auto'}"
-          Padding="16" ColumnSpacing="16" RowSpacing="12">
+    <Grid RowDefinitions="Auto,*">
+        <!-- 1. Universal Top Navigation Bar -->
+        <controls:AppNavBar Grid.Row="0" ActiveTab="Pos" />
+
+        <!-- 2. POS Billing Workspace -->
+        <Grid Grid.Row="1"
+              ColumnDefinitions="{OnIdiom Desktop='*,440', Tablet='*,380', Phone='*'}"
+              RowDefinitions="{OnIdiom Desktop='*', Tablet='*', Phone='*,Auto'}"
+              Padding="16" ColumnSpacing="16" RowSpacing="12">
 
         <!-- Left Pane: Instant Barcode/Search + Bento Product Grid -->
-        <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto,Auto,*" RowSpacing="12">
+        <Grid Grid.Column="0" Grid.Row="0" RowDefinitions="Auto,*" RowSpacing="12">
             <Border Style="{StaticResource BentoCardBorder}" Padding="12">
                 <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
                     <Entry x:Name="BarcodeEntry"
                            Placeholder="Scan barcode or search product name / SKU..."
                            Text="{Binding SearchQuery}"
                            ReturnCommand="{Binding SearchCatalogCommand}"
-                           MinimumHeightRequest="48" />
+                           MinimumHeightRequest="44" />
                     <Button Grid.Column="1" Text="Search" Style="{StaticResource PrimaryActionButton}"
                             Command="{Binding SearchCatalogCommand}" />
                     <Border Grid.Column="2" IsVisible="{Binding IsOfflineMode}"
@@ -30,24 +40,30 @@
                 </Grid>
             </Border>
 
-            <CollectionView Grid.Row="2" ItemsSource="{Binding CatalogProducts}" SelectionMode="None">
+            <CollectionView Grid.Row="1" ItemsSource="{Binding CatalogProducts}" SelectionMode="None">
                 <CollectionView.ItemsLayout>
                     <GridItemsLayout Orientation="Vertical" Span="{OnIdiom Desktop=4, Tablet=3, Phone=2}"
                                      HorizontalItemSpacing="12" VerticalItemSpacing="12" />
                 </CollectionView.ItemsLayout>
                 <CollectionView.ItemTemplate>
                     <DataTemplate x:DataType="prod:ProductDto">
-                        <Border Style="{StaticResource BentoCardBorder}" Padding="14">
+                        <Border Style="{StaticResource BentoCardBorder}" Padding="12">
                             <Border.GestureRecognizers>
-                                <TapGestureRecognizer Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PosViewModel}}, Path=AddToCartCommand}"
-                                                      CommandParameter="{Binding .}" />
+                                <TapGestureRecognizer Tapped="OnProductTapped" />
                             </Border.GestureRecognizers>
                             <VerticalStackLayout Spacing="6">
-                                <Label Text="{Binding Sku}" Style="{StaticResource CardEyebrowStyle}" LineBreakMode="TailTruncation" />
-                                <Label Text="{Binding Name}" FontSize="14" FontAttributes="Bold" MaxLines="2" LineBreakMode="TailTruncation" />
-                                <Grid ColumnDefinitions="*,Auto" Margin="0,6,0,0">
+                                <!-- Product Photo Thumbnail -->
+                                <Border HeightRequest="60" StrokeShape="RoundRectangle 8" BackgroundColor="#27272A" Stroke="#3F3F46" StrokeThickness="1">
+                                    <Grid>
+                                        <Label Text="📦" FontSize="24" HorizontalOptions="Center" VerticalOptions="Center" />
+                                        <Image Source="{Binding ImagePath}" Aspect="AspectFill" HeightRequest="60" />
+                                    </Grid>
+                                </Border>
+                                <Label Text="{Binding Sku}" Style="{StaticResource CardEyebrowStyle}" LineBreakMode="TailTruncation" TextColor="#38BDF8" />
+                                <Label Text="{Binding Name}" FontSize="14" FontAttributes="Bold" TextColor="#FFFFFF" MaxLines="2" LineBreakMode="TailTruncation" />
+                                <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
                                     <Label Text="{Binding SellingPrice, StringFormat='₹{0:N2}'}" FontSize="16" Style="{StaticResource TabularMoneyStyle}" />
-                                    <Label Grid.Column="1" Text="{Binding CurrentStock, StringFormat='Qty {0:0.#}'}" FontSize="11"
+                                    <Label Grid.Column="1" Text="{Binding CurrentStock, StringFormat='Stock: {0:0.#}'}" FontSize="11" FontAttributes="Bold"
                                            TextColor="{StaticResource SuccessText}" VerticalOptions="Center" />
                                 </Grid>
                             </VerticalStackLayout>
@@ -60,58 +76,123 @@
         <!-- Right Pane: Active Cart & GST Breakdown (Desktop / Tablet) -->
         <Border Grid.Column="{OnIdiom Desktop=1, Tablet=1, Phone=0}"
                 Grid.Row="{OnIdiom Desktop=0, Tablet=0, Phone=1}"
-                Style="{StaticResource BentoCardBorder}">
-            <Grid RowDefinitions="Auto,*,Auto,Auto" RowSpacing="12">
-                <Grid ColumnDefinitions="*,Auto">
-                    <Label Text="Current Bill" FontSize="18" FontAttributes="Bold" />
-                    <Button Grid.Column="1" Text="Hold" Command="{Binding HoldCurrentBillCommand}"
-                            CornerRadius="8" Padding="12,6" />
+                Style="{StaticResource BentoCardBorder}" Padding="16">
+            <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="10">
+
+                <!-- Header + Hold Actions -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                    <Label Text="Current Bill" FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
+                    <Button Grid.Column="1" Text="Hold (Park)" Command="{Binding HoldCurrentBillCommand}"
+                            CornerRadius="8" Padding="10,4" HeightRequest="32" FontSize="11" BackgroundColor="#27272A" TextColor="#FAFAFA" />
+                    <Button Grid.Column="2" Text="{Binding HeldBills.Count, StringFormat='Parked ({0})'}"
+                            Command="{Binding ToggleHeldBillsDrawerCommand}"
+                            CornerRadius="8" Padding="10,4" HeightRequest="32" FontSize="11" BackgroundColor="#3F3F46" TextColor="#FBBF24" />
                 </Grid>
 
-                <CollectionView Grid.Row="1" ItemsSource="{Binding CartLines}" MaximumHeightRequest="{OnIdiom Phone=180, Desktop=999, Tablet=999}">
+                <!-- Customer Details Row -->
+                <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8">
+                    <Entry Placeholder="Customer Phone" Text="{Binding CustomerPhone}" HeightRequest="36" FontSize="12" />
+                    <Entry Placeholder="Name / GSTIN" Text="{Binding CustomerName}" HeightRequest="36" FontSize="12" />
+                </Grid>
+
+                <!-- Cart Items List -->
+                <CollectionView Grid.Row="2" ItemsSource="{Binding CartLines}">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="vm:CartLineViewModel">
-                            <Grid ColumnDefinitions="*,Auto,Auto" Padding="0,8" ColumnSpacing="8">
-                                <VerticalStackLayout>
+                            <Grid ColumnDefinitions="*,Auto,Auto" Padding="0,6" ColumnSpacing="8">
+                                <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="{Binding Product.Name}" FontSize="13" FontAttributes="Bold" LineBreakMode="TailTruncation" />
                                     <Label Text="{Binding Product.SellingPrice, StringFormat='₹{0:N2}'}" FontSize="11"
                                            TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}" />
                                 </VerticalStackLayout>
                                 <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                                    <Button Text="-" WidthRequest="40" HeightRequest="40" Padding="0"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PosViewModel}}, Path=DecrementQuantityCommand}"
-                                            CommandParameter="{Binding .}" />
-                                    <Label Text="{Binding Quantity, StringFormat='{0:0.###}'}" WidthRequest="34"
+                                    <Button Text="-" WidthRequest="34" HeightRequest="34" Padding="0"
+                                            CommandParameter="{Binding .}"
+                                            Clicked="OnDecrementQuantityClicked" />
+                                    <Label Text="{Binding Quantity, StringFormat='{}{0:0.###}'}" WidthRequest="30"
                                            HorizontalTextAlignment="Center" VerticalTextAlignment="Center" Style="{StaticResource TabularMoneyStyle}" />
-                                    <Button Text="+" WidthRequest="40" HeightRequest="40" Padding="0"
-                                            Command="{Binding Source={RelativeSource AncestorType={x:Type vm:PosViewModel}}, Path=IncrementQuantityCommand}"
-                                            CommandParameter="{Binding .}" />
+                                    <Button Text="+" WidthRequest="34" HeightRequest="34" Padding="0"
+                                            CommandParameter="{Binding .}"
+                                            Clicked="OnIncrementQuantityClicked" />
                                 </HorizontalStackLayout>
                                 <Label Grid.Column="2" Text="{Binding LineTotal, StringFormat='₹{0:N2}'}" VerticalTextAlignment="Center"
-                                       Style="{StaticResource TabularMoneyStyle}" />
+                                       Style="{StaticResource TabularMoneyStyle}" WidthRequest="70" HorizontalTextAlignment="End" />
                             </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
                 </CollectionView>
 
-                <VerticalStackLayout Grid.Row="2" Spacing="4">
+                <!-- Calculation Summary & Payment Options -->
+                <VerticalStackLayout Grid.Row="3" Spacing="6">
                     <Grid ColumnDefinitions="*,Auto">
-                        <Label Text="Taxable Value" FontSize="12" />
-                        <Label Grid.Column="1" Text="{Binding TaxableTotal, StringFormat='₹{0:N2}'}" Style="{StaticResource TabularMoneyStyle}" FontSize="12" />
+                        <Label Text="Taxable Value" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                        <Label Grid.Column="1" Text="{Binding TaxableTotal, StringFormat='₹{0:N2}'}" Style="{StaticResource TabularMoneyStyle}" FontSize="12" TextColor="#FFFFFF" />
                     </Grid>
                     <Grid ColumnDefinitions="*,Auto">
-                        <Label Text="GST Total" FontSize="12" />
-                        <Label Grid.Column="1" Text="{Binding GstTotal, StringFormat='₹{0:N2}'}" Style="{StaticResource TabularMoneyStyle}" FontSize="12" />
+                        <Label Text="GST Total (Tax)" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                        <Label Grid.Column="1" Text="{Binding GstTotal, StringFormat='₹{0:N2}'}" Style="{StaticResource TabularMoneyStyle}" FontSize="12" TextColor="#38BDF8" />
                     </Grid>
-                    <Grid ColumnDefinitions="*,Auto" Margin="0,4,0,0">
-                        <Label Text="GRAND TOTAL" FontSize="16" FontAttributes="Bold" />
-                        <Label Grid.Column="1" Text="{Binding GrandTotal, StringFormat='₹{0:N2}'}" FontSize="20" Style="{StaticResource TabularMoneyStyle}" />
+                    <Grid ColumnDefinitions="*,Auto">
+                        <Label Text="Bill Discount (₹)" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" VerticalOptions="Center" />
+                        <Entry Grid.Column="1" Text="{Binding BillDiscountAmount}" Keyboard="Numeric"
+                               WidthRequest="90" HeightRequest="32" FontSize="12" HorizontalTextAlignment="End" />
+                    </Grid>
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
+                        <Label Text="GRAND TOTAL" FontSize="16" FontAttributes="Bold" TextColor="#FFFFFF" />
+                        <Label Grid.Column="1" Text="{Binding GrandTotal, StringFormat='₹{0:N2}'}" FontSize="24" FontAttributes="Bold" TextColor="#10B981" Style="{StaticResource TabularMoneyStyle}" />
+                    </Grid>
+
+                    <!-- Payment Mode Selector -->
+                    <Label Text="Payment Mode:" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" Margin="0,2,0,0" />
+                    <HorizontalStackLayout Spacing="6">
+                        <Button Text="💵 Cash" HeightRequest="36" Padding="12,0" FontSize="12" FontAttributes="Bold"
+                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="{x:Static enums:PaymentMode.Cash}" />
+                        <Button Text="📱 UPI" HeightRequest="36" Padding="12,0" FontSize="12" FontAttributes="Bold"
+                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="{x:Static enums:PaymentMode.Upi}" />
+                        <Button Text="💳 Card" HeightRequest="36" Padding="12,0" FontSize="12" FontAttributes="Bold"
+                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="{x:Static enums:PaymentMode.Card}" />
+                        <Button Text="📝 Credit" HeightRequest="36" Padding="12,0" FontSize="12" FontAttributes="Bold"
+                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="{x:Static enums:PaymentMode.Credit}" />
+                    </HorizontalStackLayout>
+
+                    <!-- Quick Cash Tender Buttons -->
+                    <HorizontalStackLayout Spacing="6" Margin="0,2,0,0">
+                        <Button Text="Exact" HeightRequest="30" Padding="8,0" FontSize="11" CornerRadius="6"
+                                BackgroundColor="#27272A" TextColor="#FAFAFA"
+                                Command="{Binding SetQuickCashTenderedCommand}" CommandParameter="{Binding GrandTotal}" />
+                        <Button Text="₹100" HeightRequest="30" Padding="8,0" FontSize="11" CornerRadius="6"
+                                BackgroundColor="#27272A" TextColor="#FAFAFA"
+                                Command="{Binding SetQuickCashTenderedCommand}" CommandParameter="100" />
+                        <Button Text="₹200" HeightRequest="30" Padding="8,0" FontSize="11" CornerRadius="6"
+                                BackgroundColor="#27272A" TextColor="#FAFAFA"
+                                Command="{Binding SetQuickCashTenderedCommand}" CommandParameter="200" />
+                        <Button Text="₹500" HeightRequest="30" Padding="8,0" FontSize="11" CornerRadius="6"
+                                BackgroundColor="#27272A" TextColor="#FAFAFA"
+                                Command="{Binding SetQuickCashTenderedCommand}" CommandParameter="500" />
+                        <Button Text="₹2000" HeightRequest="30" Padding="8,0" FontSize="11" CornerRadius="6"
+                                BackgroundColor="#27272A" TextColor="#FAFAFA"
+                                Command="{Binding SetQuickCashTenderedCommand}" CommandParameter="2000" />
+                    </HorizontalStackLayout>
+
+                    <!-- Cash Tendered & Change Return -->
+                    <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
+                        <HorizontalStackLayout Spacing="8" VerticalOptions="Center">
+                            <Label Text="Tendered:" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" VerticalOptions="Center" />
+                            <Entry Text="{Binding CashTendered}" Keyboard="Numeric" WidthRequest="80" HeightRequest="32" FontSize="12" />
+                        </HorizontalStackLayout>
+                        <HorizontalStackLayout Grid.Column="1" Spacing="6" VerticalOptions="Center">
+                            <Label Text="Return:" FontSize="13" FontAttributes="Bold" TextColor="{StaticResource WarningText}" VerticalOptions="Center" />
+                            <Label Text="{Binding ChangeToReturn, StringFormat='₹{0:N2}'}" FontSize="18" FontAttributes="Bold" TextColor="{StaticResource WarningText}" VerticalOptions="Center" />
+                        </HorizontalStackLayout>
                     </Grid>
                 </VerticalStackLayout>
 
-                <Button Grid.Row="3" Text="Save &amp; Print Bill" Style="{StaticResource PrimaryActionButton}"
+                <!-- Save & Print Action -->
+                <Button Grid.Row="4" Text="Save &amp; Print Bill (F9)" Style="{StaticResource PrimaryActionButton}"
+                        HeightRequest="48" FontSize="15"
                         Command="{Binding CheckoutCommand}" />
             </Grid>
         </Border>
+        </Grid>
     </Grid>
 </ContentPage>

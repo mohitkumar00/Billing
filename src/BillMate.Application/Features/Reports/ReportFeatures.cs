@@ -27,6 +27,29 @@ public sealed record Gstr1ReportDto(IReadOnlyList<Gstr1B2BEntry> B2BInvoices, de
 public sealed record Gstr3bSlabSummary(decimal TaxRatePercent, decimal TaxableValue, decimal Cgst, decimal Sgst, decimal Igst, decimal Cess);
 public sealed record Gstr3bReportDto(decimal CompositionTurnover, IReadOnlyList<Gstr3bSlabSummary> RegularSlabs);
 
+public sealed record DayBookTransactionDto(
+    string Time,
+    string Type,
+    string ReferenceNumber,
+    string Description,
+    PaymentMode PaymentMode,
+    decimal Inflow,
+    decimal Outflow);
+
+public sealed record DayBookReportDto(
+    DateOnly Date,
+    int TotalInvoices,
+    decimal TotalSales,
+    decimal CashSales,
+    decimal UpiSales,
+    decimal CardSales,
+    decimal CreditSales,
+    int TotalExpenses,
+    decimal TotalExpensesAmount,
+    decimal CashExpenses,
+    decimal NetCashInHand,
+    IReadOnlyList<DayBookTransactionDto> Transactions);
+
 [RequirePermission("reports.gst")]
 public sealed record GetSalesSummaryQuery(DateTimeOffset FromUtc, DateTimeOffset ToUtc) : IQuery<SalesSummaryDto>;
 
@@ -37,12 +60,16 @@ public sealed record GetGstr1ReportQuery(DateTimeOffset FromUtc, DateTimeOffset 
 public sealed record GetGstr3bSummaryQuery(DateTimeOffset FromUtc, DateTimeOffset ToUtc) : IQuery<Gstr3bReportDto>;
 
 [RequirePermission("reports.gst")]
+public sealed record GetDayBookQuery(DateOnly Date) : IQuery<DayBookReportDto>;
+
+[RequirePermission("reports.gst")]
 public sealed record ExportTallyXmlQuery(DateTimeOffset FromUtc, DateTimeOffset ToUtc) : IQuery<string>;
 
 internal sealed class ReportHandlers :
     IRequestHandler<GetSalesSummaryQuery, SalesSummaryDto>,
     IRequestHandler<GetGstr1ReportQuery, Gstr1ReportDto>,
     IRequestHandler<GetGstr3bSummaryQuery, Gstr3bReportDto>,
+    IRequestHandler<GetDayBookQuery, DayBookReportDto>,
     IRequestHandler<ExportTallyXmlQuery, string>
 {
     private readonly IApplicationDbContext _db;
@@ -189,5 +216,84 @@ internal sealed class ReportHandlers :
                                     new XElement("AMOUNT", inv.GrandTotal.ToString("0.00")))))))));
 
         return new XDocument(new XDeclaration("1.0", "utf-8", "yes"), envelope).ToString();
+    }
+
+    public async Task<DayBookReportDto> Handle(GetDayBookQuery request, CancellationToken ct)
+    {
+        var businessId = _currentUser.BusinessId ?? throw new UnauthorizedAppException("AUTH_003", "Missing business context.");
+        var istOffset = TimeSpan.FromHours(5.5);
+        var startUtc = new DateTimeOffset(request.Date.Year, request.Date.Month, request.Date.Day, 0, 0, 0, istOffset).ToUniversalTime();
+        var endUtc = startUtc.AddDays(1).AddTicks(-1);
+
+        var invoices = await _db.Invoices.AsNoTracking()
+            .Include(i => i.Payments)
+            .Where(i => i.BusinessId == businessId
+                        && i.InvoiceDate >= startUtc
+                        && i.InvoiceDate <= endUtc
+                        && (i.Status == InvoiceStatus.Confirmed || i.Status == InvoiceStatus.Partial || i.Status == InvoiceStatus.Paid))
+            .OrderBy(i => i.InvoiceDate)
+            .ToListAsync(ct);
+
+        var expenses = await _db.Expenses.AsNoTracking()
+            .Where(e => e.BusinessId == businessId && e.ExpenseDate == request.Date)
+            .OrderBy(e => e.CreatedAt)
+            .ToListAsync(ct);
+
+        decimal cashSales = 0m, upiSales = 0m, cardSales = 0m, creditSales = 0m;
+        var transactions = new List<DayBookTransactionDto>();
+
+        foreach (var inv in invoices)
+        {
+            var paidByCash = inv.Payments.Where(p => p.PaymentMode == PaymentMode.Cash).Sum(p => p.Amount);
+            var paidByUpi = inv.Payments.Where(p => p.PaymentMode == PaymentMode.Upi).Sum(p => p.Amount);
+            var paidByCard = inv.Payments.Where(p => p.PaymentMode == PaymentMode.Card).Sum(p => p.Amount);
+            var unpaidCredit = Math.Max(0m, inv.GrandTotal - inv.AmountPaid);
+
+            cashSales += paidByCash;
+            upiSales += paidByUpi;
+            cardSales += paidByCard;
+            creditSales += unpaidCredit;
+
+            var primaryMode = inv.Payments.FirstOrDefault()?.PaymentMode ?? PaymentMode.Credit;
+            transactions.Add(new DayBookTransactionDto(
+                Time: inv.InvoiceDate.ToOffset(istOffset).ToString("hh:mm tt"),
+                Type: "Sale Invoice",
+                ReferenceNumber: inv.InvoiceNumber,
+                Description: $"Tax Invoice ({inv.Items.Count} items)",
+                PaymentMode: primaryMode,
+                Inflow: inv.GrandTotal,
+                Outflow: 0m));
+        }
+
+        decimal cashExpenses = 0m, totalExpensesAmount = 0m;
+        foreach (var exp in expenses)
+        {
+            totalExpensesAmount += exp.Amount;
+            if (exp.PaymentMode == PaymentMode.Cash)
+                cashExpenses += exp.Amount;
+
+            transactions.Add(new DayBookTransactionDto(
+                Time: exp.CreatedAt.ToOffset(istOffset).ToString("hh:mm tt"),
+                Type: "Store Expense",
+                ReferenceNumber: "EXP",
+                Description: string.IsNullOrWhiteSpace(exp.Description) ? "Expense" : exp.Description,
+                PaymentMode: exp.PaymentMode,
+                Inflow: 0m,
+                Outflow: exp.Amount));
+        }
+
+        return new DayBookReportDto(
+            Date: request.Date,
+            TotalInvoices: invoices.Count,
+            TotalSales: invoices.Sum(i => i.GrandTotal),
+            CashSales: cashSales,
+            UpiSales: upiSales,
+            CardSales: cardSales,
+            CreditSales: creditSales,
+            TotalExpenses: expenses.Count,
+            TotalExpensesAmount: totalExpensesAmount,
+            CashExpenses: cashExpenses,
+            NetCashInHand: cashSales - cashExpenses,
+            Transactions: transactions);
     }
 }

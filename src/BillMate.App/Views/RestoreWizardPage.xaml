@@ -3,12 +3,20 @@
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
              xmlns:iface="clr-namespace:BillMate.Application.Common.Interfaces;assembly=BillMate.Application"
+             xmlns:controls="clr-namespace:BillMate.App.Controls"
              x:Class="BillMate.App.Views.RestoreWizardPage"
              x:DataType="vm:RestoreWizardViewModel"
              BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
+             Shell.NavBarIsVisible="False"
              Title="Google Drive Restore">
 
-    <VerticalStackLayout Padding="24" Spacing="20" MaximumWidthRequest="720" HorizontalOptions="Center">
+    <Grid RowDefinitions="Auto,*">
+        <!-- 1. Universal Top Navigation Bar -->
+        <controls:AppNavBar Grid.Row="0" ActiveTab="Restore" />
+
+        <!-- 2. Restore Content -->
+        <ScrollView Grid.Row="1">
+            <VerticalStackLayout Padding="24" Spacing="20" MaximumWidthRequest="720" HorizontalOptions="Center">
         <Label Text="3-Click Disaster Recovery Wizard" Style="{StaticResource PageTitleStyle}" />
         <Label Text="{Binding CurrentStep, StringFormat='Step {0} of 3 — Select a verified Drive backup to restore your shop database'}"
                TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}" />
@@ -43,5 +51,7 @@
                         Command="{Binding ExecuteRestoreCommand}" />
             </VerticalStackLayout>
         </Border>
-    </VerticalStackLayout>
+            </VerticalStackLayout>
+        </ScrollView>
+    </Grid>
 </ContentPage>

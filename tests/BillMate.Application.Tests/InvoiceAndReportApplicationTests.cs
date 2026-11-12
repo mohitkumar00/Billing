@@ -211,6 +211,9 @@ public sealed class InvoiceAndReportApplicationTests : IAsyncLifetime
         var pinLogin = await sender.Send(new PinLoginCommand(login.UserId, "1234"));
         Assert.Equal(login.UserId, pinLogin.UserId);
 
+        var pinLoginByPinOnly = await sender.Send(new PinLoginCommand(null, "1234"));
+        Assert.Equal(login.UserId, pinLoginByPinOnly.UserId);
+
         var refreshed = await sender.Send(new RefreshTokenCommand(pinLogin.RefreshToken));
         Assert.NotEqual(pinLogin.RefreshToken, refreshed.RefreshToken);
 

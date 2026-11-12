@@ -85,6 +85,21 @@ public sealed partial class PosViewModel : StatefulViewModelBase
     private decimal _cashTendered;
 
     [ObservableProperty]
+    private string _customerPhone = string.Empty;
+
+    [ObservableProperty]
+    private string _customerName = string.Empty;
+
+    [ObservableProperty]
+    private string _customerGstin = string.Empty;
+
+    [ObservableProperty]
+    private decimal _billDiscountAmount;
+
+    [ObservableProperty]
+    private bool _isHeldBillsDrawerOpen;
+
+    [ObservableProperty]
     private string? _lastReceiptNumber;
 
     public decimal ChangeToReturn => Math.Max(0m, CashTendered - GrandTotal);
@@ -97,27 +112,97 @@ public sealed partial class PosViewModel : StatefulViewModelBase
     }
 
     [RelayCommand]
+    public void SelectPaymentMode(PaymentMode mode)
+    {
+        SelectedPaymentMode = mode;
+        if (mode == PaymentMode.Cash && CashTendered < GrandTotal)
+        {
+            CashTendered = GrandTotal;
+        }
+        OnPropertyChanged(nameof(ChangeToReturn));
+    }
+
+    [RelayCommand]
+    public void SetQuickCashTendered(decimal amount)
+    {
+        CashTendered = amount;
+        OnPropertyChanged(nameof(ChangeToReturn));
+    }
+
+    [RelayCommand]
+    public void ToggleHeldBillsDrawer()
+    {
+        IsHeldBillsDrawerOpen = !IsHeldBillsDrawerOpen;
+    }
+
+    [RelayCommand]
     public async Task SearchCatalogAsync(CancellationToken ct = default)
     {
         await SafeExecuteAsync(async () =>
         {
-            CatalogProducts.Clear();
-            try
-            {
-                var remote = await _api.SearchProductsAsync(SearchQuery, 60, ct);
-                IsOfflineMode = false;
-                await _localStore.UpsertProductsAsync(remote, ct);
-                foreach (var p in remote) CatalogProducts.Add(p);
-            }
-            catch
-            {
-                IsOfflineMode = true;
-                var cached = await _localStore.SearchCachedProductsAsync(SearchQuery, 60, ct);
-                foreach (var p in cached) CatalogProducts.Add(p);
-            }
+            var syncContext = SynchronizationContext.Current;
 
+            // 1. Instant local SQLite cache lookup (< 10ms, never hangs UI)
+            var cached = await _localStore.SearchCachedProductsAsync(SearchQuery, 60, ct);
+            CatalogProducts.Clear();
+            foreach (var p in cached) CatalogProducts.Add(p);
             IsEmpty = CatalogProducts.Count == 0;
-        });
+
+            // 2. Fetch fresh catalog from API in background without blocking POS UI
+            _ = Task.Run(async () =>
+            {
+                try
+                {
+                    using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+                    var remote = await _api.SearchProductsAsync(SearchQuery, 60, cts.Token);
+                    if (remote.Count > 0)
+                    {
+                        await _localStore.UpsertProductsAsync(remote, cts.Token);
+                        void UpdateList()
+                        {
+                            IsOfflineMode = false;
+                            CatalogProducts.Clear();
+                            foreach (var p in remote) CatalogProducts.Add(p);
+                            IsEmpty = CatalogProducts.Count == 0;
+                        }
+
+                        if (syncContext != null)
+                        {
+                            syncContext.Post(_ => UpdateList(), null);
+                        }
+                        else
+                        {
+                            UpdateList();
+                        }
+                    }
+                }
+                catch
+                {
+                    if (syncContext != null)
+                    {
+                        syncContext.Post(_ => IsOfflineMode = true, null);
+                    }
+                    else
+                    {
+                        IsOfflineMode = true;
+                    }
+                }
+            });
+
+            // Instant Barcode Scanner: If exact barcode or SKU match, automatically add to cart
+            var trimmed = SearchQuery.Trim();
+            if (!string.IsNullOrWhiteSpace(trimmed) && cached.Count > 0)
+            {
+                var exact = cached.FirstOrDefault(p =>
+                    string.Equals(p.Barcode, trimmed, StringComparison.OrdinalIgnoreCase) ||
+                    string.Equals(p.Sku, trimmed, StringComparison.OrdinalIgnoreCase));
+                if (exact != null)
+                {
+                    AddToCart(exact);
+                    SearchQuery = string.Empty;
+                }
+            }
+        }, showLoading: false);
     }
 
     [RelayCommand]
@@ -182,14 +267,44 @@ public sealed partial class PosViewModel : StatefulViewModelBase
             var idempotencyKey = Guid.NewGuid();
             var lines = CartLines.Select(l => new CreateInvoiceLineInput(l.Product.Id, l.Quantity, l.Product.SellingPrice, l.DiscountAmount)).ToArray();
             var payments = GrandTotal > 0m ? new[] { new InvoicePaymentInput(SelectedPaymentMode, GrandTotal) } : Array.Empty<InvoicePaymentInput>();
-            var command = new CreateInvoiceCommand(idempotencyKey, lines, payments);
+
+            Guid? customerId = null;
+            if (!string.IsNullOrWhiteSpace(CustomerPhone))
+            {
+                try
+                {
+                    var found = await _api.SearchCustomersAsync(CustomerPhone.Trim(), 1, ct);
+                    if (found.Count > 0)
+                    {
+                        customerId = found[0].Id;
+                    }
+                    else if (!string.IsNullOrWhiteSpace(CustomerName))
+                    {
+                        var createdCustomer = await _api.CreateCustomerAsync(new Application.Features.Parties.CreateCustomerCommand(
+                            Name: CustomerName.Trim(),
+                            Phone: CustomerPhone.Trim(),
+                            Gstin: string.IsNullOrWhiteSpace(CustomerGstin) ? null : CustomerGstin.Trim(),
+                            StateCode: CustomerGstin?.Length >= 2 ? CustomerGstin[..2] : null), ct);
+                        customerId = createdCustomer.Id;
+                    }
+                }
+                catch { }
+            }
+
+            var command = new CreateInvoiceCommand(
+                IdempotencyKey: idempotencyKey,
+                Items: lines,
+                Payments: payments,
+                CustomerId: customerId,
+                PlaceOfSupplyCode: CustomerGstin?.Length >= 2 ? CustomerGstin[..2] : _session.SellerStateCode,
+                Notes: BillDiscountAmount > 0 ? $"Special bill discount ₹{BillDiscountAmount:N2} applied" : null);
 
             try
             {
                 var saved = await _api.CreateInvoiceAsync(command, ct);
                 IsOfflineMode = false;
                 LastReceiptNumber = saved.InvoiceNumber;
-                ToastMessage = $"Bill {saved.InvoiceNumber} saved (₹{saved.GrandTotal:N2}).";
+                ToastMessage = $"Bill {saved.InvoiceNumber} saved (₹{saved.GrandTotal:N2}). Mode: {SelectedPaymentMode}.";
             }
             catch
             {
@@ -202,20 +317,33 @@ public sealed partial class PosViewModel : StatefulViewModelBase
 
             CartLines.Clear();
             CashTendered = 0m;
+            BillDiscountAmount = 0m;
+            CustomerPhone = string.Empty;
+            CustomerName = string.Empty;
+            CustomerGstin = string.Empty;
             RecalculateCart();
         }, showLoading: false);
     }
 
     public void RecalculateCart()
     {
+        var isInterState = !string.IsNullOrWhiteSpace(CustomerGstin) && CustomerGstin.Length >= 2 && !CustomerGstin.StartsWith(_session.SellerStateCode);
         foreach (var line in CartLines)
-            line.Recalculate(isInterState: false, _session.IsCompositionScheme);
+            line.Recalculate(isInterState, _session.IsCompositionScheme);
 
         TaxableTotal = CartLines.Sum(l => l.TaxableAmount);
         GstTotal = CartLines.Sum(l => l.TaxAmount);
-        var (rounded, delta) = new Money(CartLines.Sum(l => l.LineTotal)).RoundToNearestRupee();
+        var subTotal = CartLines.Sum(l => l.LineTotal);
+        var afterDiscount = Math.Max(0m, subTotal - BillDiscountAmount);
+        var (rounded, delta) = new Money(afterDiscount).RoundToNearestRupee();
         RoundOff = delta;
         GrandTotal = rounded.Amount;
+
+        if (SelectedPaymentMode == PaymentMode.Cash && CashTendered < GrandTotal)
+        {
+            CashTendered = GrandTotal;
+        }
+
         OnPropertyChanged(nameof(ChangeToReturn));
     }
 }

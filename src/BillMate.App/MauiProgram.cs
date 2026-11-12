@@ -1,3 +1,4 @@
+using BillMate.App.Services;
 using BillMate.App.Views;
 using BillMate.ClientCore.Services;
 using BillMate.ClientCore.Theme;
@@ -18,10 +19,13 @@ public static class MauiProgram
         var sqlitePath = Path.Combine(FileSystem.AppDataDirectory, "billmate_offline.db");
 
         builder.Services.AddBillMateClientCore(sqlitePath, whiteLabel);
+        builder.Services.AddSingleton<INavigationService, MauiNavigationService>();
 
         builder.Services.AddTransient<PinLoginPage>();
         builder.Services.AddTransient<DashboardPage>();
         builder.Services.AddTransient<PosPage>();
+        builder.Services.AddTransient<InventoryPage>();
+        builder.Services.AddTransient<ReportsPage>();
         builder.Services.AddTransient<RestoreWizardPage>();
 
         return builder.Build();

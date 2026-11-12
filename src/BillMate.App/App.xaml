@@ -2,6 +2,7 @@
 <Application xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
              xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
              xmlns:toolkit="http://schemas.microsoft.com/dotnet/2022/maui/toolkit"
+             xmlns:conv="clr-namespace:BillMate.App.Converters"
              x:Class="BillMate.App.App">
     <Application.Resources>
         <ResourceDictionary>
@@ -10,6 +11,8 @@
             </ResourceDictionary.MergedDictionaries>
             <toolkit:InvertedBoolConverter x:Key="InvertedBoolConverter" />
             <toolkit:IsNotNullConverter x:Key="IsNotNullConverter" />
+            <conv:StockBadgeBgConverter x:Key="StockBadgeBgConverter" />
+            <conv:StockBadgeTextConverter x:Key="StockBadgeTextConverter" />
         </ResourceDictionary>
     </Application.Resources>
 </Application>

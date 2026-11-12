@@ -17,17 +17,17 @@
     <Color x:Key="SurfaceBaseLight">#F8FAFC</Color>
     <Color x:Key="SurfaceBaseDark">#09090B</Color>
     <Color x:Key="SurfaceCardLight">#FFFFFF</Color>
-    <Color x:Key="SurfaceCardDark">#121216</Color>
+    <Color x:Key="SurfaceCardDark">#18181B</Color>
     <Color x:Key="SurfaceElevatedLight">#FFFFFF</Color>
-    <Color x:Key="SurfaceElevatedDark">#18181B</Color>
-    <Color x:Key="BorderSubtleLight">#E2E8F0</Color>
-    <Color x:Key="BorderSubtleDark">#27272A</Color>
+    <Color x:Key="SurfaceElevatedDark">#27272A</Color>
+    <Color x:Key="BorderSubtleLight">#CBD5E1</Color>
+    <Color x:Key="BorderSubtleDark">#3F3F46</Color>
 
-    <!-- Text Tokens -->
+    <!-- Text Tokens (Crisp high-contrast AAA) -->
     <Color x:Key="TextPrimaryLight">#0F172A</Color>
-    <Color x:Key="TextPrimaryDark">#FAFAFA</Color>
-    <Color x:Key="TextMutedLight">#64748B</Color>
-    <Color x:Key="TextMutedDark">#A1A1AA</Color>
+    <Color x:Key="TextPrimaryDark">#FFFFFF</Color>
+    <Color x:Key="TextMutedLight">#334155</Color>
+    <Color x:Key="TextMutedDark">#E2E8F0</Color>
 
     <!-- Semantic Status Colors -->
     <Color x:Key="SuccessText">#10B981</Color>
@@ -41,22 +41,22 @@
     <Style x:Key="BentoCardBorder" TargetType="Border">
         <Setter Property="BackgroundColor" Value="{AppThemeBinding Light={StaticResource SurfaceCardLight}, Dark={StaticResource SurfaceCardDark}}" />
         <Setter Property="Stroke" Value="{AppThemeBinding Light={StaticResource BorderSubtleLight}, Dark={StaticResource BorderSubtleDark}}" />
-        <Setter Property="StrokeThickness" Value="1" />
+        <Setter Property="StrokeThickness" Value="1.5" />
         <Setter Property="StrokeShape" Value="RoundRectangle 16" />
         <Setter Property="Padding" Value="16" />
     </Style>
 
     <!-- Typography Styles -->
     <Style x:Key="PageTitleStyle" TargetType="Label">
-        <Setter Property="FontSize" Value="24" />
+        <Setter Property="FontSize" Value="26" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextPrimaryLight}, Dark={StaticResource TextPrimaryDark}}" />
     </Style>
 
     <Style x:Key="CardEyebrowStyle" TargetType="Label">
-        <Setter Property="FontSize" Value="11" />
+        <Setter Property="FontSize" Value="13" />
         <Setter Property="FontAttributes" Value="Bold" />
-        <Setter Property="CharacterSpacing" Value="0.8" />
+        <Setter Property="CharacterSpacing" Value="1.0" />
         <Setter Property="TextColor" Value="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}" />
     </Style>
 
@@ -70,6 +70,18 @@
     <Style x:Key="PrimaryActionButton" TargetType="Button">
         <Setter Property="BackgroundColor" Value="{StaticResource BrandPrimary}" />
         <Setter Property="TextColor" Value="#FFFFFF" />
+        <Setter Property="FontAttributes" Value="Bold" />
+        <Setter Property="FontSize" Value="14" />
+        <Setter Property="CornerRadius" Value="12" />
+        <Setter Property="MinimumHeightRequest" Value="48" />
+        <Setter Property="Padding" Value="16,12" />
+    </Style>
+
+    <Style x:Key="SecondaryActionButton" TargetType="Button">
+        <Setter Property="BackgroundColor" Value="#27272A" />
+        <Setter Property="TextColor" Value="#FFFFFF" />
+        <Setter Property="BorderColor" Value="#52525B" />
+        <Setter Property="BorderWidth" Value="1" />
         <Setter Property="FontAttributes" Value="Bold" />
         <Setter Property="FontSize" Value="14" />
         <Setter Property="CornerRadius" Value="12" />

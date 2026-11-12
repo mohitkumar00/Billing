@@ -19,7 +19,7 @@ public sealed record AuthResponse(
 
 public sealed record LoginCommand(string Email, string Password, Guid? DeviceId = null) : ICommand<AuthResponse>;
 
-public sealed record PinLoginCommand(Guid UserId, string Pin, Guid? DeviceId = null) : ICommand<AuthResponse>;
+public sealed record PinLoginCommand(Guid? UserId, string Pin, Guid? DeviceId = null) : ICommand<AuthResponse>;
 
 public sealed record RefreshTokenCommand(string RefreshToken) : ICommand<AuthResponse>;
 
@@ -38,7 +38,6 @@ public sealed class PinLoginCommandValidator : AbstractValidator<PinLoginCommand
 {
     public PinLoginCommandValidator()
     {
-        RuleFor(x => x.UserId).NotEmpty();
         RuleFor(x => x.Pin).NotEmpty().Length(4, 6).Matches(@"^\d+$");
     }
 }
@@ -76,13 +75,30 @@ internal sealed class AuthHandlers :
 
     public async Task<AuthResponse> Handle(PinLoginCommand request, CancellationToken ct)
     {
-        var user = await _db.Users
-            .Include(u => u.Role!)
-            .ThenInclude(r => r.Permissions)
-            .FirstOrDefaultAsync(u => u.Id == request.UserId && u.IsActive, ct);
+        User? user;
+        if (request.UserId.HasValue && request.UserId.Value != Guid.Empty)
+        {
+            user = await _db.Users
+                .Include(u => u.Role!)
+                .ThenInclude(r => r.Permissions)
+                .FirstOrDefaultAsync(u => u.Id == request.UserId.Value && u.IsActive, ct);
 
-        if (user is null || string.IsNullOrEmpty(user.PinHash) || !_hasher.Verify(request.Pin, user.PinHash))
-            throw new UnauthorizedAppException("AUTH_001", "Invalid cashier PIN.");
+            if (user is null || string.IsNullOrEmpty(user.PinHash) || !_hasher.Verify(request.Pin, user.PinHash))
+                throw new UnauthorizedAppException("AUTH_001", "Invalid cashier PIN.");
+        }
+        else
+        {
+            var activeUsers = await _db.Users
+                .Include(u => u.Role!)
+                .ThenInclude(r => r.Permissions)
+                .Where(u => u.IsActive && u.PinHash != null)
+                .ToListAsync(ct);
+
+            user = activeUsers.FirstOrDefault(u => _hasher.Verify(request.Pin, u.PinHash!));
+
+            if (user is null)
+                throw new UnauthorizedAppException("AUTH_001", "Invalid cashier PIN.");
+        }
 
         return await IssueSessionAsync(user, request.DeviceId, ct);
     }

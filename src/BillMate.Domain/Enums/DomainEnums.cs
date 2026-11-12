@@ -34,7 +34,8 @@ public enum PaymentMode
     Card,
     BankTransfer,
     Cheque,
-    Loyalty
+    Loyalty,
+    Credit
 }
 
 public enum StockMovementType

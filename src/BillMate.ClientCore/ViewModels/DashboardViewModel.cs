@@ -15,6 +15,7 @@ public sealed partial class DashboardViewModel : StatefulViewModelBase
     private readonly IBillMateApi _api;
     private readonly OfflineLocalStore _localStore;
     private readonly OfflineSyncCoordinator _syncCoordinator;
+    private readonly INavigationService? _navigation;
 
     private static readonly QuickCommandItem[] AllCommands =
     [
@@ -49,12 +50,71 @@ public sealed partial class DashboardViewModel : StatefulViewModelBase
     [ObservableProperty]
     private string _commandSearchQuery = string.Empty;
 
-    public DashboardViewModel(IBillMateApi api, OfflineLocalStore localStore, OfflineSyncCoordinator syncCoordinator)
+    public DashboardViewModel(
+        IBillMateApi api,
+        OfflineLocalStore localStore,
+        OfflineSyncCoordinator syncCoordinator,
+        INavigationService? navigation = null)
     {
         _api = api;
         _localStore = localStore;
         _syncCoordinator = syncCoordinator;
+        _navigation = navigation;
         RefreshCommandFilter();
+    }
+
+    [RelayCommand]
+    public async Task NavigateToPosAsync()
+    {
+        if (_navigation != null)
+        {
+            await _navigation.NavigateToAsync("//pos");
+        }
+    }
+
+    [RelayCommand]
+    public async Task NavigateToInventoryAsync()
+    {
+        if (_navigation != null)
+        {
+            await _navigation.NavigateToAsync("//inventory");
+        }
+    }
+
+    [RelayCommand]
+    public async Task NavigateToPinLoginAsync()
+    {
+        if (_navigation != null)
+        {
+            await _navigation.NavigateToAsync("//pinlogin");
+        }
+    }
+
+    [RelayCommand]
+    public async Task NavigateToRestoreAsync()
+    {
+        if (_navigation != null)
+        {
+            await _navigation.NavigateToAsync("//restore");
+        }
+    }
+
+    [RelayCommand]
+    public async Task NavigateToReportsAsync()
+    {
+        if (_navigation != null)
+        {
+            await _navigation.NavigateToAsync("//reports");
+        }
+    }
+
+    [RelayCommand]
+    public async Task ExecuteQuickCommandAsync(QuickCommandItem cmd)
+    {
+        if (_navigation != null && !string.IsNullOrWhiteSpace(cmd.RouteKey))
+        {
+            await _navigation.NavigateToAsync($"//{cmd.RouteKey}");
+        }
     }
 
     partial void OnCommandSearchQueryChanged(string value) => RefreshCommandFilter();

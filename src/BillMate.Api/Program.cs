@@ -23,7 +23,11 @@ using Serilog.Events;
 
 var builder = WebApplication.CreateBuilder(args);
 
-builder.Host.UseWindowsService(options => options.ServiceName = "BillMateApi");
+builder.WebHost.UseUrls(builder.Configuration["Urls"] ?? "http://localhost:5050");
+if (Microsoft.Extensions.Hosting.WindowsServices.WindowsServiceHelpers.IsWindowsService())
+{
+    builder.Host.UseWindowsService(options => options.ServiceName = "BillMateApi");
+}
 
 var logDirectory = OperatingSystem.IsWindows()
     ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.CommonApplicationData), "BillMate", "Logs")
@@ -109,7 +113,10 @@ if (hangfireEnabled)
         .SetDataCompatibilityLevel(CompatibilityLevel.Version_180)
         .UseSimpleAssemblyNameTypeSerializer()
         .UseRecommendedSerializerSettings()
-        .UsePostgreSqlStorage(opts => opts.UseNpgsqlConnection(connStr)));
+        .UsePostgreSqlStorage(opts => opts.UseNpgsqlConnection(connStr), new Hangfire.PostgreSql.PostgreSqlStorageOptions
+        {
+            DistributedLockTimeout = TimeSpan.FromSeconds(5)
+        }));
     builder.Services.AddHangfireServer();
 }
 
@@ -160,11 +167,27 @@ if (builder.Configuration.GetValue("Database:AutoMigrateOnStartup", false))
 
 if (hangfireEnabled)
 {
-    RecurringJob.AddOrUpdate<NightlyBackupJob>(
-        "billmate-nightly-backup",
-        job => job.ExecuteAsync(CancellationToken.None),
-        Cron.Daily(23, 0),
-        new RecurringJobOptions { TimeZone = TimeZoneInfo.Local });
+    try
+    {
+        using var scope = app.Services.CreateScope();
+        var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+        await db.Database.ExecuteSqlRawAsync("TRUNCATE TABLE hangfire.lock;");
+    }
+    catch { }
+
+    try
+    {
+        var recurringJobs = app.Services.GetRequiredService<IRecurringJobManager>();
+        recurringJobs.AddOrUpdate<NightlyBackupJob>(
+            "billmate-nightly-backup",
+            job => job.ExecuteAsync(CancellationToken.None),
+            Cron.Daily(23, 0),
+            new RecurringJobOptions { TimeZone = TimeZoneInfo.Local });
+    }
+    catch (Exception ex)
+    {
+        Serilog.Log.Warning(ex, "Failed to schedule recurring nightly backup job.");
+    }
 }
 
 app.Run();

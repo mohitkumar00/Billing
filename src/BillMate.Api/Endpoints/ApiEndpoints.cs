@@ -1,6 +1,7 @@
 using BillMate.Application.Common.Interfaces;
 using BillMate.Application.Features.Auth;
 using BillMate.Application.Features.Backup;
+using BillMate.Application.Features.Expenses;
 using BillMate.Application.Features.Invoices;
 using BillMate.Application.Features.Parties;
 using BillMate.Application.Features.Products;
@@ -110,11 +111,25 @@ public static class ApiEndpoints
             Results.Ok(await sender.Send(new GetGstr1ReportQuery(from, to), ct)));
         reports.MapGet("/gstr3b", async (DateTimeOffset from, DateTimeOffset to, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetGstr3bSummaryQuery(from, to), ct)));
+        reports.MapGet("/day-book", async (DateOnly? date, ISender sender, CancellationToken ct) =>
+            Results.Ok(await sender.Send(new GetDayBookQuery(date ?? DateOnly.FromDateTime(DateTime.UtcNow)), ct)));
         reports.MapGet("/tally-export", async (DateTimeOffset from, DateTimeOffset to, ISender sender, CancellationToken ct) =>
         {
             var xml = await sender.Send(new ExportTallyXmlQuery(from, to), ct);
             return Results.Content(xml, "application/xml");
         });
+
+        // Expenses (PRD 3.4.2)
+        var expenses = secured.MapGroup("/expenses");
+        expenses.MapPost("/", async (CreateExpenseCommand cmd, ISender sender, CancellationToken ct) =>
+        {
+            var created = await sender.Send(cmd, ct);
+            return Results.Created($"/api/v1/expenses/{created.Id}", created);
+        });
+        expenses.MapGet("/", async (DateTimeOffset? from, DateTimeOffset? to, Guid? categoryId, ISender sender, CancellationToken ct) =>
+            Results.Ok(await sender.Send(new GetExpensesQuery(from, to, categoryId), ct)));
+        expenses.MapGet("/categories", async (ISender sender, CancellationToken ct) =>
+            Results.Ok(await sender.Send(new GetExpenseCategoriesQuery(), ct)));
 
         // Offline Sync Batch
         secured.MapPost("/sync/batch", async (ProcessOfflineSyncBatchCommand cmd, ISender sender, CancellationToken ct) =>
@@ -144,7 +159,6 @@ public static class ApiEndpoints
         return app;
     }
 
-    public sealed record StockAdjustBody(decimal QuantityDelta, string Reason);
     public sealed record CancelInvoiceBody(string Reason);
     public sealed record CustomerPaymentBody(Guid? InvoiceId, PaymentMode PaymentMode, decimal Amount, string? ReferenceNumber, string? Notes);
     public sealed record ReceivePoBody(string? SupplierInvoiceNo);
