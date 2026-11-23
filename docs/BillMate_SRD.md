@@ -882,6 +882,35 @@ Connected Windows and Android clients authenticate using the JWT Bearer token vi
 | `PaymentReceived` | Server → Clients | `{ customerId, invoiceId, amount }` | Payment recorded |
 | `SyncRequired` | Server → Clients | `{ entityType, sinceTimestamp }` | Bulk import or restore completed |
 
+### 4.5 Invoice Cancellation Technical Contract
+
+#### Endpoint
+- `POST /api/v1/invoices/{id}/cancel`
+
+#### Request Body
+```json
+{
+  "reason": "Counter mistake - wrong quantity billed"
+}
+```
+
+#### Behavior
+1. Authorize with permission `invoices.cancel`.
+2. Validate invoice belongs to `business_id` and is not already cancelled.
+3. Transition invoice status to `Cancelled`.
+4. Create credit note linked to original invoice.
+5. Reverse stock movements for each inventory line.
+6. Emit audit log + SignalR stock updates.
+
+#### Response (200)
+- `CreditNoteDto` payload with `creditNoteNumber`, `originalInvoiceId`, `reason`, `totalAmount`, `issuedAt`.
+
+#### Error Cases
+- `401 AUTH_003` unauthenticated/expired token
+- `403 AUTH_002` missing permission (`CASHIER` expected)
+- `404 BILL_001` invoice not found
+- `409 BILL_002` invalid state transition (already cancelled or not cancellable)
+
 ---
 
 ## 5. SFDC Design (Security, Fault Tolerance, Data Integrity, Concurrency)
@@ -1103,6 +1132,35 @@ public async Task RestoreFromDriveAsync(
 | **Backup/Restore Tests** | Automated PowerShell + `xUnit` CI harness | Executes `pg_dump` → GZip → `pg_restore` against ephemeral PostgreSQL container and asserts row counts match. |
 | **UI / E2E Tests** | `Appium` + `.NET MAUI UI Test` | Critical cashier flows: PIN login, barcode scan/add item, split payment, offline queue & reconnect sync. |
 | **Load / Concurrency Tests** | `NBomber` | Simulates 5 concurrent POS terminals hitting `POST /invoices` simultaneously to verify zero stock race conditions and `< 500ms` p95 latency. |
+
+### 10.1 Cancellation Feature Implementation Plan (Engineering)
+
+1. **API Layer**
+   - Keep `POST /invoices/{id}/cancel` in minimal API endpoint group.
+   - Enforce mandatory reason text and structured validation errors.
+
+2. **Application Layer**
+   - Use `CancelInvoiceCommand` with `RequirePermission("invoices.cancel")`.
+   - Guarantee transactional consistency: invoice status + credit note + stock reversal + audit log in one transaction.
+
+3. **Client Core**
+   - Add cancellation API contract in `IBillMateApi`.
+   - Surface cancel action from invoice list (Dashboard/Invoices pages) with optimistic refresh.
+   - Show user-friendly role denial messaging for cashier (mapped from `AUTH_002`).
+
+4. **MAUI UX**
+   - Show cancel button only when invoice status is not `Cancelled` and role permits action.
+   - Require reason confirmation modal before submit.
+   - Refresh invoice timeline and show credit note reference.
+
+5. **Observability**
+   - Log structured fields: `invoiceId`, `creditNoteId`, `userId`, `deviceId`, `reason`, `durationMs`.
+   - Add dashboard card for daily cancellations and exceptions.
+
+6. **Test Coverage**
+   - Unit: state transition rules and reason validation.
+   - Integration: idempotent cancellation behavior and stock reversal.
+   - UI: cashier denied, manager/admin success, cancelled invoice button hidden.
 
 ---
 

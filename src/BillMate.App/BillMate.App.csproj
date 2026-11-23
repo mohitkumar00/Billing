@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFramework></TargetFramework>
-    <TargetFrameworks>net10.0-android;net10.0-windows10.0.19041.0</TargetFrameworks>
+    <TargetFrameworks>net10.0-windows10.0.19041.0</TargetFrameworks>
+    <TargetFrameworks Condition="'$(EnableAndroidTarget)' == 'true'">net10.0-android36.0;net10.0-windows10.0.19041.0</TargetFrameworks>
+    <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
     <OutputType>Exe</OutputType>
     <RootNamespace>BillMate.App</RootNamespace>
     <UseMaui>true</UseMaui>
@@ -21,7 +22,8 @@
 
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <WindowsPackageType>None</WindowsPackageType>
-    <WindowsAppSDKSelfContained>true</WindowsAppSDKSelfContained>
+    <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
+    <VsInstallRoot Condition="'$(VsInstallRoot)' != '' and !Exists('$(VsInstallRoot)VC\\Tools\\MSVC')"></VsInstallRoot>
   </PropertyGroup>
 
   <ItemGroup>
@@ -33,5 +35,11 @@
 
   <ItemGroup>
     <ProjectReference Include="..\BillMate.ClientCore\BillMate.ClientCore.csproj" />
+  </ItemGroup>
+
+  <ItemGroup>
+    <MauiXaml Update="Views\InvoicesPage.xaml">
+      <Generator>MSBuild:Compile</Generator>
+    </MauiXaml>
   </ItemGroup>
 </Project>

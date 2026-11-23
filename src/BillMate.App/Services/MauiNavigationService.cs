@@ -51,6 +51,7 @@ public sealed class MauiNavigationService : INavigationService
         return key switch
         {
             "pos" => text.Contains("pos") || text.Contains("bill"),
+            "invoices" => text.Contains("invoice"),
             "inventory" => text.Contains("inventory") || text.Contains("stock"),
             "reports" => text.Contains("report") || text.Contains("tax"),
             "dashboard" => text.Contains("dashboard"),

@@ -24,7 +24,7 @@ public static class DependencyInjection
         services.AddScoped<IBackupOrchestrator, BackupOrchestrator>();
 
         var connectionString = configuration.GetConnectionString("DefaultConnection")
-            ?? "Host=localhost;Port=5432;Database=billmatedb;Username=billmate;Password=billmate_dev_password";
+            ?? "Host=localhost;Port=5432;Database=billmatedb;Username=postgres;Password=admin";
 
         services.AddDbContext<AppDbContext>((sp, options) =>
         {

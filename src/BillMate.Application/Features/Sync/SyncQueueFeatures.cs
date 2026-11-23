@@ -37,6 +37,8 @@ internal sealed class SyncBatchHandler : IRequestHandler<ProcessOfflineSyncBatch
     public async Task<SyncBatchResult> Handle(ProcessOfflineSyncBatchCommand request, CancellationToken ct)
     {
         var businessId = _currentUser.BusinessId ?? throw new UnauthorizedAppException("AUTH_003", "Missing business context.");
+        await EnsureDeviceExistsAsync(businessId, request.DeviceId, ct);
+
         int processed = 0, conflict = 0, failed = 0;
 
         foreach (var op in request.Operations.OrderBy(o => o.ClientCreatedAt))
@@ -80,5 +82,26 @@ internal sealed class SyncBatchHandler : IRequestHandler<ProcessOfflineSyncBatch
         }
 
         return new SyncBatchResult(processed, conflict, failed);
+    }
+
+    private async Task EnsureDeviceExistsAsync(Guid businessId, Guid deviceId, CancellationToken ct)
+    {
+        var device = await _db.Devices.FirstOrDefaultAsync(d => d.Id == deviceId, ct);
+        if (device is not null)
+        {
+            device.Touch();
+            await _db.SaveChangesAsync(ct);
+            return;
+        }
+
+        var registered = Device.RegisterWithId(
+            deviceId,
+            businessId,
+            deviceName: "Offline Client Device",
+            platform: "WINDOWS",
+            deviceIdentifier: deviceId.ToString("N"));
+
+        _db.Devices.Add(registered);
+        await _db.SaveChangesAsync(ct);
     }
 }

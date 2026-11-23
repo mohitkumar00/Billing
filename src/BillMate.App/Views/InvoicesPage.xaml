@@ -1,0 +1,99 @@
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
+             xmlns:inv="clr-namespace:BillMate.Application.Features.Invoices;assembly=BillMate.Application"
+             xmlns:controls="clr-namespace:BillMate.App.Controls"
+             x:Class="BillMate.App.Views.InvoicesPage"
+             x:DataType="vm:InvoicesViewModel"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
+             Shell.NavBarIsVisible="False"
+             Title="Invoices">
+
+    <Grid RowDefinitions="Auto,*">
+        <controls:AppNavBar Grid.Row="0" ActiveTab="invoices" />
+
+        <Grid Grid.Row="1" Padding="16" ColumnDefinitions="2*,3*" ColumnSpacing="12">
+            <Border Grid.Column="0" Style="{StaticResource BentoCardBorder}" Padding="12">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Invoice History" Style="{StaticResource PageTitleStyle}" />
+
+                    <Grid ColumnDefinitions="*,*" ColumnSpacing="8">
+                        <DatePicker Date="{Binding FilterFromDate}" />
+                        <DatePicker Grid.Column="1" Date="{Binding FilterToDate}" />
+                    </Grid>
+
+                    <FlexLayout Wrap="Wrap" Direction="Row" AlignItems="Center" JustifyContent="Start">
+                        <Button Text="All" Command="{Binding SetStatusFilterCommand}" CommandParameter="ALL" />
+                        <Button Text="Paid" Command="{Binding SetStatusFilterCommand}" CommandParameter="PAID" />
+                        <Button Text="Partial" Command="{Binding SetStatusFilterCommand}" CommandParameter="PARTIAL" />
+                        <Button Text="Hold" Command="{Binding SetStatusFilterCommand}" CommandParameter="HOLD" />
+                        <Button Text="Cancelled" Command="{Binding SetStatusFilterCommand}" CommandParameter="CANCELLED" />
+                    </FlexLayout>
+
+                    <Button Text="Refresh" Style="{StaticResource PrimaryActionButton}" Command="{Binding LoadInvoicesCommand}" />
+
+                    <CollectionView ItemsSource="{Binding Invoices}" SelectionMode="Single" SelectionChanged="OnInvoiceSelectionChanged">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="inv:InvoiceSummaryDto">
+                                <Border StrokeThickness="0" BackgroundColor="{AppThemeBinding Light=#08000000, Dark=#14FFFFFF}" StrokeShape="RoundRectangle 8" Padding="10" Margin="0,3">
+                                    <Grid ColumnDefinitions="*,Auto" RowDefinitions="Auto,Auto,Auto" RowSpacing="2">
+                                        <Label Text="{Binding InvoiceNumber}" FontAttributes="Bold" />
+                                        <Label Grid.Column="1" Text="{Binding GrandTotal, StringFormat='Rs {0:N2}'}" Style="{StaticResource TabularMoneyStyle}" />
+                                        <Label Grid.Row="1" Text="{Binding InvoiceDate, StringFormat='{}{0:dd MMM yyyy HH:mm}'}" FontSize="11" />
+                                        <Label Grid.Row="2" Text="{Binding Status}" FontSize="11" FontAttributes="Bold" TextColor="{StaticResource BrandPrimary}" />
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </VerticalStackLayout>
+            </Border>
+
+            <Border Grid.Column="1" Style="{StaticResource BentoCardBorder}" Padding="12">
+                <VerticalStackLayout Spacing="10">
+                    <Label Text="Invoice Details" Style="{StaticResource PageTitleStyle}" />
+
+                    <VerticalStackLayout IsVisible="{Binding HasSelectedInvoice}" Spacing="8">
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Label Text="Number:" FontAttributes="Bold" />
+                            <Label Grid.Column="1" Text="{Binding SelectedInvoice.InvoiceNumber}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Label Text="Status:" FontAttributes="Bold" />
+                            <Label Grid.Column="1" Text="{Binding SelectedInvoice.Status}" />
+                        </Grid>
+                        <Grid ColumnDefinitions="Auto,*">
+                            <Label Text="Total:" FontAttributes="Bold" />
+                            <Label Grid.Column="1" Text="{Binding SelectedInvoice.GrandTotal, StringFormat='Rs {0:N2}'}" Style="{StaticResource TabularMoneyStyle}" />
+                        </Grid>
+
+                        <Label Text="Items" FontAttributes="Bold" Margin="0,8,0,0" />
+                        <CollectionView HeightRequest="220" ItemsSource="{Binding SelectedInvoiceDetail.Items}">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="inv:InvoiceItemDto">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8" Padding="0,4">
+                                        <Label Text="{Binding ItemName}" LineBreakMode="TailTruncation" />
+                                        <Label Grid.Column="1" Text="{Binding Quantity, StringFormat='x{0:0.###}'}" />
+                                        <Label Grid.Column="2" Text="{Binding LineTotal, StringFormat='Rs {0:N2}'}" Style="{StaticResource TabularMoneyStyle}" />
+                                    </Grid>
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+
+                        <Border IsVisible="{Binding CanCancelSelectedInvoice}" BackgroundColor="#1F2937" Stroke="#374151" StrokeShape="RoundRectangle 8" Padding="10">
+                            <VerticalStackLayout Spacing="8">
+                                <Label Text="Cancel Invoice" FontAttributes="Bold" TextColor="#FEE2E2" />
+                                <Editor Placeholder="Reason (minimum 5 characters)" AutoSize="TextChanges" HeightRequest="80" Text="{Binding CancelReason}" />
+                                <Button Text="Cancel Invoice" BackgroundColor="#991B1B" TextColor="#FEE2E2" Command="{Binding CancelSelectedInvoiceCommand}" />
+                            </VerticalStackLayout>
+                        </Border>
+                    </VerticalStackLayout>
+
+                    <Label IsVisible="{Binding HasSelectedInvoice, Converter={StaticResource InvertedBoolConverter}}"
+                           Text="Select an invoice from the list to view details."
+                           TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}" />
+                </VerticalStackLayout>
+            </Border>
+        </Grid>
+    </Grid>
+</ContentPage>

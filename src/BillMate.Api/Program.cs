@@ -105,7 +105,7 @@ builder.Services.AddSingleton<ISyncBroadcaster, SignalRSyncBroadcaster>();
 // Hangfire Background Jobs (PostgreSQL storage)
 var hangfireEnabled = builder.Configuration.GetValue("Hangfire:Enabled", true);
 var connStr = builder.Configuration.GetConnectionString("DefaultConnection")
-    ?? "Host=localhost;Port=5432;Database=billmatedb;Username=billmate;Password=billmate_dev_password";
+    ?? "Host=localhost;Port=5432;Database=billmatedb;Username=postgres;Password=admin";
 
 if (hangfireEnabled)
 {

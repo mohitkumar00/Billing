@@ -42,6 +42,7 @@ public partial class AppNavBar : ContentView
 
         SetButtonState(BtnDashboard, active == "dashboard");
         SetButtonState(BtnPos, active == "pos" || active == "billing");
+        SetButtonState(BtnInvoices, active == "invoices" || active == "invoice");
         SetButtonState(BtnInventory, active == "inventory" || active == "stock");
         SetButtonState(BtnReports, active == "reports" || active == "tax");
         SetButtonState(BtnRestore, active == "restore" || active == "backup");
@@ -83,6 +84,7 @@ public partial class AppNavBar : ContentView
 
     private void OnDashboardClicked(object? sender, EventArgs e) => NavigateToRoute("dashboard");
     private void OnPosClicked(object? sender, EventArgs e) => NavigateToRoute("pos");
+    private void OnInvoicesClicked(object? sender, EventArgs e) => NavigateToRoute("invoices");
     private void OnInventoryClicked(object? sender, EventArgs e) => NavigateToRoute("inventory");
     private void OnReportsClicked(object? sender, EventArgs e) => NavigateToRoute("reports");
     private void OnRestoreClicked(object? sender, EventArgs e) => NavigateToRoute("restore");

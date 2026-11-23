@@ -24,6 +24,7 @@ public static class MauiProgram
         builder.Services.AddTransient<PinLoginPage>();
         builder.Services.AddTransient<DashboardPage>();
         builder.Services.AddTransient<PosPage>();
+        builder.Services.AddTransient<InvoicesPage>();
         builder.Services.AddTransient<InventoryPage>();
         builder.Services.AddTransient<ReportsPage>();
         builder.Services.AddTransient<RestoreWizardPage>();

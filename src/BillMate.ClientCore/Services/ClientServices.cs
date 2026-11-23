@@ -67,7 +67,7 @@ public sealed class BearerAuthHandler : DelegatingHandler
         {
             try
             {
-                using var client = new HttpClient { BaseAddress = new Uri(_session.ServerBaseUrl), Timeout = TimeSpan.FromSeconds(2) };
+                using var client = new HttpClient { BaseAddress = new Uri(_session.ServerBaseUrl), Timeout = TimeSpan.FromSeconds(15) };
                 var content = new StringContent(
                     System.Text.Json.JsonSerializer.Serialize(new { email = "admin@billmate.local", password = "ChangeMe@123" }),
                     System.Text.Encoding.UTF8,
@@ -189,6 +189,7 @@ public static class ClientCoreDependencyInjection
         services.AddTransient<OfflineSyncCoordinator>();
         services.AddTransient<PosViewModel>();
         services.AddTransient<DashboardViewModel>();
+        services.AddTransient<InvoicesViewModel>();
         services.AddTransient<RestoreWizardViewModel>();
         services.AddTransient<PinLoginViewModel>();
         services.AddTransient<InventoryViewModel>();
@@ -199,7 +200,7 @@ public static class ClientCoreDependencyInjection
             {
                 var session = sp.GetRequiredService<ClientSessionState>();
                 client.BaseAddress = new Uri(session.ServerBaseUrl);
-                client.Timeout = TimeSpan.FromSeconds(5);
+                client.Timeout = TimeSpan.FromSeconds(20);
             })
             .AddHttpMessageHandler<BearerAuthHandler>()
             .AddResilienceHandler("billmate-sfdc", builder =>

@@ -157,8 +157,7 @@ internal sealed class ProductHandlers :
             barcode: request.Barcode,
             hsnSacCode: request.HsnSacCode,
             isService: request.IsService,
-            isTaxInclusive: request.IsTaxInclusive,
-            imagePath: request.ImagePath);
+            isTaxInclusive: request.IsTaxInclusive);
 
         _db.Products.Add(product);
 

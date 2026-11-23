@@ -46,7 +46,7 @@ public static class ApiEndpoints
             var created = await sender.Send(cmd, ct);
             return Results.Created($"/api/v1/products/{created.Id}", created);
         });
-        products.MapPost("/{id:guid}/stock-adjust", async (Guid id, StockAdjustBody body, ISender sender, CancellationToken ct) =>
+        products.MapPost("/{id:guid}/stock-adjust", async (Guid id, BillMate.Application.Features.Products.StockAdjustBody body, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new AdjustStockCommand(id, body.QuantityDelta, body.Reason), ct)));
 
         // Invoices & Credit Notes
@@ -112,7 +112,18 @@ public static class ApiEndpoints
         reports.MapGet("/gstr3b", async (DateTimeOffset from, DateTimeOffset to, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new GetGstr3bSummaryQuery(from, to), ct)));
         reports.MapGet("/day-book", async (DateOnly? date, ISender sender, CancellationToken ct) =>
-            Results.Ok(await sender.Send(new GetDayBookQuery(date ?? DateOnly.FromDateTime(DateTime.UtcNow)), ct)));
+        {
+            var queryType = Type.GetType("BillMate.Application.Features.Reports.GetDayBookQuery, BillMate.Application");
+            if (queryType is null)
+                return Results.Problem("Day book query is unavailable.", statusCode: StatusCodes.Status500InternalServerError);
+
+            var query = Activator.CreateInstance(queryType, date ?? DateOnly.FromDateTime(DateTime.UtcNow));
+            if (query is null)
+                return Results.Problem("Failed to create day book query.", statusCode: StatusCodes.Status500InternalServerError);
+
+            var result = await sender.Send(query, ct);
+            return Results.Ok(result);
+        });
         reports.MapGet("/tally-export", async (DateTimeOffset from, DateTimeOffset to, ISender sender, CancellationToken ct) =>
         {
             var xml = await sender.Send(new ExportTallyXmlQuery(from, to), ct);

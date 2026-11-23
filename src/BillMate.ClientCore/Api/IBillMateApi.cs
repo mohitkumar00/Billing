@@ -7,9 +7,12 @@ using BillMate.Application.Features.Parties;
 using BillMate.Application.Features.Products;
 using BillMate.Application.Features.Reports;
 using BillMate.Application.Features.Sync;
+using BillMate.Domain.Enums;
 using Refit;
 
 namespace BillMate.ClientCore.Api;
+
+public sealed record CancelInvoiceBody(string Reason);
 
 public interface IBillMateApi
 {
@@ -39,6 +42,24 @@ public interface IBillMateApi
 
     [Get("/api/v1/invoices")]
     Task<IReadOnlyList<InvoiceSummaryDto>> GetInvoicesAsync([Query] int page = 1, [Query] int pageSize = 50, CancellationToken ct = default);
+
+    [Get("/api/v1/invoices")]
+    Task<IReadOnlyList<InvoiceSummaryDto>> QueryInvoicesAsync(
+        [Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset? from = null,
+        [Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset? to = null,
+        [Query] InvoiceStatus? status = null,
+        [Query] int page = 1,
+        [Query] int pageSize = 50,
+        CancellationToken ct = default);
+
+    [Get("/api/v1/invoices/{id}")]
+    Task<InvoiceDto> GetInvoiceByIdAsync(Guid id, CancellationToken ct = default);
+
+    [Post("/api/v1/invoices/{id}/cancel")]
+    Task<CreditNoteDto> CancelInvoiceAsync(Guid id, [Body] CancelInvoiceBody body, CancellationToken ct = default);
+
+    [Get("/api/v1/invoices/{id}/pdf")]
+    Task<HttpResponseMessage> GetInvoicePdfAsync(Guid id, [Query] InvoicePageFormat format = InvoicePageFormat.A4, CancellationToken ct = default);
 
     [Get("/api/v1/invoices/{id}/escpos")]
     Task<HttpResponseMessage> GetEscPosReceiptAsync(Guid id, [Query] int width = 80, [Query] bool openDrawer = false, CancellationToken ct = default);

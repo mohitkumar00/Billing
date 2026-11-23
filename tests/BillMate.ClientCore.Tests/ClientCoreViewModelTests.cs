@@ -2,6 +2,7 @@ using BillMate.Application.Common.Interfaces;
 using BillMate.Application.Features.Auth;
 using BillMate.Application.Features.Backup;
 using BillMate.Application.Features.Invoices;
+using BillMate.Application.Features.Parties;
 using BillMate.Application.Features.Products;
 using BillMate.Application.Features.Reports;
 using BillMate.Application.Features.Sync;
@@ -13,6 +14,8 @@ using BillMate.ClientCore.ViewModels;
 using BillMate.Domain.Enums;
 using NSubstitute;
 using NSubstitute.ExceptionExtensions;
+using System.Net;
+using System.Net.Http.Headers;
 
 namespace BillMate.ClientCore.Tests;
 
@@ -45,6 +48,12 @@ public sealed class ClientCoreViewModelTests : IAsyncLifetime
             .Returns([product]);
         var vm = new PosViewModel(api, _localStore, session);
         await vm.SearchCatalogCommand.ExecuteAsync(null);
+
+        for (var attempt = 0; attempt < 20 && vm.CatalogProducts.Count == 0; attempt++)
+        {
+            await Task.Delay(25);
+        }
+
         Assert.Single(vm.CatalogProducts);
         Assert.False(vm.IsOfflineMode);
 
@@ -81,6 +90,184 @@ public sealed class ClientCoreViewModelTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task PosViewModel_Checkout_SavesPdf_AndAttemptsPrint()
+    {
+        var api = Substitute.For<IBillMateApi>();
+        var session = new ClientSessionState();
+        var businessId = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+        var product = new ProductDto(Guid.NewGuid(), "SKU-7", "8900007", "Ground Coffee 200g", "PCS", "0901", Guid.NewGuid(), 20m, 200m, 220m, 10m, 5m, false, false, true, 1);
+
+        api.CreateInvoiceAsync(Arg.Any<CreateInvoiceCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new InvoiceDto(
+                invoiceId,
+                "INV-4201",
+                "2026-27",
+                InvoiceType.TaxInvoice,
+                InvoiceStatus.Paid,
+                DateTimeOffset.UtcNow,
+                null,
+                "27",
+                false,
+                false,
+                220m,
+                0m,
+                209.52m,
+                5.24m,
+                5.24m,
+                0m,
+                0m,
+                0m,
+                220m,
+                220m,
+                0m,
+                "Two Hundred Twenty",
+                [new InvoiceItemDto(Guid.NewGuid(), "Ground Coffee 200g", "0901", "PCS", 1m, 220m, 0m, 209.52m, 2.5m, 5.24m, 2.5m, 5.24m, 0m, 0m, 0m, 220m)]));
+
+        var pdfResponse = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent([0x25, 0x50, 0x44, 0x46])
+        };
+        pdfResponse.Content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
+        {
+            FileName = "INV-4201.pdf"
+        };
+
+        api.GetInvoicePdfAsync(invoiceId, InvoicePageFormat.A4, Arg.Any<CancellationToken>())
+            .Returns(pdfResponse);
+
+        var vm = new PosViewModel(api, _localStore, session);
+        vm.AddToCart(product);
+
+        await vm.CheckoutCommand.ExecuteAsync(null);
+
+        Assert.False(string.IsNullOrWhiteSpace(vm.LastSavedPdfPath));
+        Assert.True(File.Exists(vm.LastSavedPdfPath));
+        await api.Received(1).GetInvoicePdfAsync(invoiceId, InvoicePageFormat.A4, Arg.Any<CancellationToken>());
+
+        if (!string.IsNullOrWhiteSpace(vm.LastSavedPdfPath) && File.Exists(vm.LastSavedPdfPath))
+        {
+            File.Delete(vm.LastSavedPdfPath);
+        }
+    }
+
+    [Fact]
+    public void PosViewModel_ClearCurrentBill_ResetsCartAndCustomerFields()
+    {
+        var api = Substitute.For<IBillMateApi>();
+        var session = new ClientSessionState();
+        var product = new ProductDto(Guid.NewGuid(), "SKU-11", "8900011", "Energy Drink", "PCS", "2202", Guid.NewGuid(), 30m, 90m, 100m, 24m, 12m, false, false, true, 1);
+
+        var vm = new PosViewModel(api, _localStore, session);
+        vm.CustomerPhone = "9999999999";
+        vm.CustomerName = "Test Customer";
+        vm.CustomerGstin = "27ABCDE1234F1Z5";
+        vm.BillDiscountAmount = 10m;
+        vm.AddToCart(product);
+
+        vm.ClearCurrentBillCommand.Execute(null);
+
+        Assert.Empty(vm.CartLines);
+        Assert.Equal(string.Empty, vm.CustomerPhone);
+        Assert.Equal(string.Empty, vm.CustomerName);
+        Assert.Equal(string.Empty, vm.CustomerGstin);
+        Assert.Equal(0m, vm.BillDiscountAmount);
+    }
+
+    [Fact]
+    public async Task PosViewModel_LoadCustomerSuggestions_AndSelectCustomer_PopulatesFields()
+    {
+        var api = Substitute.For<IBillMateApi>();
+        var session = new ClientSessionState();
+        var vm = new PosViewModel(api, _localStore, session);
+
+        var customer = new CustomerDto(Guid.NewGuid(), "Riya Stores", "9876543210", "27ABCDE1234F1Z5", "27", PricingTier.Retail, 0m, 0m, 0);
+        api.SearchCustomersAsync("987", 8, Arg.Any<CancellationToken>()).Returns([customer]);
+
+        await vm.LoadCustomerSuggestionsCommand.ExecuteAsync("987");
+
+        Assert.True(vm.IsCustomerSuggestionsOpen);
+        Assert.Single(vm.CustomerSuggestions);
+
+        vm.SelectCustomerSuggestionCommand.Execute(customer);
+
+        Assert.Equal(customer.Id, vm.SelectedCustomerId);
+        Assert.Equal("9876543210", vm.CustomerPhone);
+        Assert.Equal("Riya Stores", vm.CustomerName);
+        Assert.Equal("27ABCDE1234F1Z5", vm.CustomerGstin);
+        Assert.False(vm.IsCustomerSuggestionsOpen);
+    }
+
+    [Fact]
+    public async Task PosViewModel_Checkout_WithSplitPayment_SendsMultiplePayments()
+    {
+        var api = Substitute.For<IBillMateApi>();
+        var session = new ClientSessionState();
+        var invoiceId = Guid.NewGuid();
+
+        var product = new ProductDto(Guid.NewGuid(), "SKU-21", "8900021", "Premium Tea", "PCS", "0902", Guid.NewGuid(), 10m, 100m, 110m, 10m, 5m, false, false, true, 1);
+
+        api.CreateInvoiceAsync(Arg.Any<CreateInvoiceCommand>(), Arg.Any<CancellationToken>())
+            .Returns(new InvoiceDto(
+                invoiceId,
+                "INV-5001",
+                "2026-27",
+                InvoiceType.TaxInvoice,
+                InvoiceStatus.Paid,
+                DateTimeOffset.UtcNow,
+                null,
+                "27",
+                false,
+                false,
+                110m,
+                0m,
+                104.76m,
+                2.62m,
+                2.62m,
+                0m,
+                0m,
+                0m,
+                110m,
+                110m,
+                0m,
+                "One Hundred Ten",
+                [new InvoiceItemDto(Guid.NewGuid(), "Premium Tea", "0902", "PCS", 1m, 110m, 0m, 104.76m, 2.5m, 2.62m, 2.5m, 2.62m, 0m, 0m, 0m, 110m)]));
+
+        var pdfResponse = new HttpResponseMessage(HttpStatusCode.OK)
+        {
+            Content = new ByteArrayContent([0x25, 0x50, 0x44, 0x46])
+        };
+        pdfResponse.Content.Headers.ContentDisposition = new ContentDispositionHeaderValue("attachment")
+        {
+            FileName = "INV-5001.pdf"
+        };
+        api.GetInvoicePdfAsync(invoiceId, InvoicePageFormat.A4, Arg.Any<CancellationToken>()).Returns(pdfResponse);
+
+        var vm = new PosViewModel(api, _localStore, session);
+        vm.AddToCart(product);
+        vm.ToggleSplitPaymentCommand.Execute(null);
+        vm.SplitCashAmount = 50m;
+        vm.SplitUpiAmount = 60m;
+        vm.BillNotes = "Delivered to office";
+
+        await vm.CheckoutCommand.ExecuteAsync(null);
+
+        await api.Received(1).CreateInvoiceAsync(
+            Arg.Is<CreateInvoiceCommand>(c =>
+                c.Payments != null &&
+                c.Payments.Count == 2 &&
+                c.Payments.Any(p => p.PaymentMode == PaymentMode.Cash && p.Amount == 50m) &&
+                c.Payments.Any(p => p.PaymentMode == PaymentMode.Upi && p.Amount == 60m) &&
+                c.Notes != null && c.Notes.Contains("Delivered to office")),
+            Arg.Any<CancellationToken>());
+
+        if (!string.IsNullOrWhiteSpace(vm.LastSavedPdfPath) && File.Exists(vm.LastSavedPdfPath))
+        {
+            File.Delete(vm.LastSavedPdfPath);
+        }
+    }
+
+    [Fact]
     public async Task DashboardViewModel_HandlesStatesAndCommandPaletteFilter()
     {
         var api = Substitute.For<IBillMateApi>();
@@ -94,7 +281,7 @@ public sealed class ClientCoreViewModelTests : IAsyncLifetime
         api.GetInvoicesAsync(1, 10, Arg.Any<CancellationToken>())
             .Returns([]);
 
-        var vm = new DashboardViewModel(api, _localStore, coordinator);
+        var vm = new DashboardViewModel(api, _localStore, coordinator, session);
         await vm.LoadDashboardCommand.ExecuteAsync(null);
 
         Assert.Equal(18450m, vm.TodaySalesTotal);
@@ -147,5 +334,74 @@ public sealed class ClientCoreViewModelTests : IAsyncLifetime
         Assert.Equal("Gupta Mart", cfg.BusinessName);
         Assert.Equal("#0D47A1", cfg.PrimaryColor);
         Assert.Equal("07", cfg.StateCode);
+    }
+
+    [Fact]
+    public void DashboardViewModel_HidesCancelForUnauthorizedRole()
+    {
+        var api = Substitute.For<IBillMateApi>();
+        var session = new ClientSessionState
+        {
+            CurrentAuth = new AuthResponse(Guid.NewGuid(), Guid.NewGuid(), "Cashier", "cashier@billmate.local", "CASHIER", ["invoices.create"], "jwt", "rt")
+        };
+
+        var coordinator = new OfflineSyncCoordinator(_localStore, api, session);
+        var vm = new DashboardViewModel(api, _localStore, coordinator, session);
+
+        Assert.False(vm.CanCancelInvoices);
+    }
+
+    [Fact]
+    public async Task InvoicesViewModel_CancelsSelectedInvoice_WhenAuthorized()
+    {
+        var api = Substitute.For<IBillMateApi>();
+        var businessId = Guid.NewGuid();
+        var invoiceId = Guid.NewGuid();
+
+        var session = new ClientSessionState
+        {
+            CurrentAuth = new AuthResponse(Guid.NewGuid(), businessId, "Admin", "admin@billmate.local", "ADMIN", ["invoices.create", "invoices.cancel"], "jwt", "rt")
+        };
+
+        var summary = new InvoiceSummaryDto(invoiceId, "INV-1001", InvoiceType.TaxInvoice, InvoiceStatus.Paid, DateTimeOffset.UtcNow, null, 250m, 250m, 0m);
+        var detail = new InvoiceDto(
+            invoiceId,
+            "INV-1001",
+            "2026-27",
+            InvoiceType.TaxInvoice,
+            InvoiceStatus.Paid,
+            DateTimeOffset.UtcNow,
+            null,
+            "27",
+            false,
+            false,
+            250m,
+            0m,
+            211.86m,
+            19.07m,
+            19.07m,
+            0m,
+            0m,
+            0m,
+            250m,
+            250m,
+            0m,
+            "Two Hundred Fifty",
+            [new InvoiceItemDto(Guid.NewGuid(), "Demo Item", "8517", "PCS", 1m, 250m, 0m, 211.86m, 9m, 19.07m, 9m, 19.07m, 0m, 0m, 0m, 250m)]);
+
+        api.QueryInvoicesAsync(Arg.Any<DateTimeOffset?>(), Arg.Any<DateTimeOffset?>(), Arg.Any<InvoiceStatus?>(), Arg.Any<int>(), Arg.Any<int>(), Arg.Any<CancellationToken>())
+            .Returns([summary]);
+        api.GetInvoiceByIdAsync(invoiceId, Arg.Any<CancellationToken>()).Returns(detail);
+        api.CancelInvoiceAsync(invoiceId, Arg.Any<CancelInvoiceBody>(), Arg.Any<CancellationToken>())
+            .Returns(new CreditNoteDto(Guid.NewGuid(), invoiceId, "CN-0001", "Wrong bill", 250m, DateTimeOffset.UtcNow));
+
+        var vm = new InvoicesViewModel(api, session);
+        await vm.LoadInvoicesCommand.ExecuteAsync(null);
+        await vm.SelectInvoiceCommand.ExecuteAsync(summary);
+        vm.CancelReason = "Wrong bill";
+
+        await vm.CancelSelectedInvoiceCommand.ExecuteAsync(null);
+
+        await api.Received(1).CancelInvoiceAsync(invoiceId, Arg.Is<CancelInvoiceBody>(b => b.Reason == "Wrong bill"), Arg.Any<CancellationToken>());
     }
 }

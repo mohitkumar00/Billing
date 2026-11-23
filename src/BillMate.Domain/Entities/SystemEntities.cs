@@ -97,6 +97,17 @@ public sealed class Device : BaseEntity
         LastSeenAt = DateTimeOffset.UtcNow
     };
 
+    public static Device RegisterWithId(Guid deviceId, Guid businessId, string deviceName, string platform, string deviceIdentifier, string? appVersion = null) => new()
+    {
+        Id = deviceId,
+        BusinessId = businessId,
+        DeviceName = deviceName.Trim(),
+        Platform = platform.Trim().ToUpperInvariant(),
+        DeviceIdentifier = deviceIdentifier.Trim(),
+        AppVersion = appVersion,
+        LastSeenAt = DateTimeOffset.UtcNow
+    };
+
     public void Touch(string? appVersion = null)
     {
         LastSeenAt = DateTimeOffset.UtcNow;

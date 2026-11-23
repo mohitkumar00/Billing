@@ -18,4 +18,4 @@ if ($Docker -or (-not (Test-Path $pgBin))) {
 
 Write-Host "==> Starting native PostgreSQL server..." -ForegroundColor Cyan
 & "$pgBin\pg_ctl.exe" -D $pgData -l "$env:LOCALAPPDATA\PostgreSQL\server.log" start
-Write-Host "==> PostgreSQL is running on localhost:5432 (db: billmatedb, user: billmate)" -ForegroundColor Green
+Write-Host "==> PostgreSQL is running on localhost:5432 (db: billmatedb, user: postgres)" -ForegroundColor Green

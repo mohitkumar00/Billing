@@ -147,6 +147,50 @@ public sealed class InvoiceAndReportApplicationTests : IAsyncLifetime
     }
 
     [Fact]
+    public async Task CancelInvoice_ReversesStock_AndCreatesCreditNote()
+    {
+        Guid productId;
+        InvoiceDto created;
+
+        using (var scope = _provider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+            var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+            var slab18 = await db.TaxSlabs.FirstAsync(s => s.TotalRate == 18m);
+
+            var product = await sender.Send(new CreateProductCommand(
+                slab18.Id, "SKU-CAN-1", "Cancel Test Item", 120m, OpeningStock: 10m, HsnSacCode: "8517", IsTaxInclusive: false));
+            productId = product.Id;
+
+            created = await sender.Send(new CreateInvoiceCommand(
+                IdempotencyKey: Guid.NewGuid(),
+                Items: [new CreateInvoiceLineInput(productId, 2m)],
+                Payments: [new InvoicePaymentInput(PaymentMode.Cash, 283m)]));
+        }
+
+        CreditNoteDto creditNote;
+        using (var scope = _provider.CreateScope())
+        {
+            var sender = scope.ServiceProvider.GetRequiredService<ISender>();
+            creditNote = await sender.Send(new CancelInvoiceCommand(created.Id, "Wrong item billed"));
+        }
+
+        using (var scope = _provider.CreateScope())
+        {
+            var db = scope.ServiceProvider.GetRequiredService<AppDbContext>();
+
+            var invoice = await db.Invoices.FirstAsync(i => i.Id == created.Id);
+            var product = await db.Products.FirstAsync(p => p.Id == productId);
+            var cn = await db.CreditNotes.FirstAsync(c => c.Id == creditNote.Id);
+
+            Assert.Equal(InvoiceStatus.Cancelled, invoice.Status);
+            Assert.Equal(10m, product.CurrentStock);
+            Assert.Equal(created.Id, cn.OriginalInvoiceId);
+            Assert.Equal("Wrong item billed", cn.Reason);
+        }
+    }
+
+    [Fact]
     public async Task CancelInvoice_RestoresStock_AndReportsIncludeB2BAndTallyXml()
     {
         Guid productId, customerId, inv1Id, inv2Id;

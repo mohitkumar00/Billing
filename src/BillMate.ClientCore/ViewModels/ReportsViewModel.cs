@@ -29,7 +29,7 @@ public sealed partial class ReportsViewModel : StatefulViewModelBase
     }
 
     [ObservableProperty]
-    private DayBookReportDto? _dayBook;
+    private BillMate.ClientCore.Api.DayBookReportDto? _dayBook;
 
     [ObservableProperty]
     private Gstr1ReportDto? _gstr1;

@@ -1,5 +1,9 @@
 using System.Collections.ObjectModel;
+using System.Globalization;
+using System.Net;
+using BillMate.Application.Common.Interfaces;
 using BillMate.Application.Features.Invoices;
+using BillMate.Application.Features.Parties;
 using BillMate.Application.Features.Products;
 using BillMate.ClientCore.Api;
 using BillMate.ClientCore.Offline;
@@ -50,15 +54,35 @@ public sealed partial class CartLineViewModel : ObservableObject
 
 public sealed record HeldCartSnapshot(Guid HoldId, string Label, DateTimeOffset HeldAt, IReadOnlyList<CartLineViewModel> Lines);
 
+public sealed partial class SplitPaymentLineViewModel : ObservableObject
+{
+    [ObservableProperty]
+    private PaymentMode _mode;
+
+    [ObservableProperty]
+    private decimal _amount;
+
+    public SplitPaymentLineViewModel(PaymentMode mode, decimal amount)
+    {
+        _mode = mode;
+        _amount = amount;
+    }
+}
+
 public sealed partial class PosViewModel : StatefulViewModelBase
 {
+    private static readonly string PdfSaveDirectory = Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData), "BillMate", "Invoices", "PDF");
+
     private readonly IBillMateApi _api;
     private readonly OfflineLocalStore _localStore;
     private readonly ClientSessionState _session;
+    private CancellationTokenSource? _customerLookupCts;
 
     public ObservableCollection<ProductDto> CatalogProducts { get; } = [];
     public ObservableCollection<CartLineViewModel> CartLines { get; } = [];
     public ObservableCollection<HeldCartSnapshot> HeldBills { get; } = [];
+    public ObservableCollection<CustomerDto> CustomerSuggestions { get; } = [];
+    public ObservableCollection<SplitPaymentLineViewModel> SplitPayments { get; } = [];
 
     [ObservableProperty]
     private string _searchQuery = string.Empty;
@@ -94,6 +118,35 @@ public sealed partial class PosViewModel : StatefulViewModelBase
     private string _customerGstin = string.Empty;
 
     [ObservableProperty]
+    private Guid? _selectedCustomerId;
+
+    [ObservableProperty]
+    private bool _isCustomerSuggestionsOpen;
+
+    [ObservableProperty]
+    private string _billNotes = string.Empty;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TotalSplitPaymentAmount))]
+    [NotifyPropertyChangedFor(nameof(RemainingSplitAmount))]
+    private bool _isSplitPaymentEnabled;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TotalSplitPaymentAmount))]
+    [NotifyPropertyChangedFor(nameof(RemainingSplitAmount))]
+    private decimal _splitCashAmount;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TotalSplitPaymentAmount))]
+    [NotifyPropertyChangedFor(nameof(RemainingSplitAmount))]
+    private decimal _splitUpiAmount;
+
+    [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TotalSplitPaymentAmount))]
+    [NotifyPropertyChangedFor(nameof(RemainingSplitAmount))]
+    private decimal _splitCardAmount;
+
+    [ObservableProperty]
     private decimal _billDiscountAmount;
 
     [ObservableProperty]
@@ -102,7 +155,14 @@ public sealed partial class PosViewModel : StatefulViewModelBase
     [ObservableProperty]
     private string? _lastReceiptNumber;
 
+    [ObservableProperty]
+    private string? _lastSavedPdfPath;
+
     public decimal ChangeToReturn => Math.Max(0m, CashTendered - GrandTotal);
+    public decimal TotalSplitPaymentAmount => IsSplitPaymentEnabled
+        ? SplitCashAmount + SplitUpiAmount + SplitCardAmount
+        : SplitPayments.Sum(x => x.Amount);
+    public decimal RemainingSplitAmount => Math.Max(0m, GrandTotal - TotalSplitPaymentAmount);
 
     public PosViewModel(IBillMateApi api, OfflineLocalStore localStore, ClientSessionState session)
     {
@@ -112,10 +172,22 @@ public sealed partial class PosViewModel : StatefulViewModelBase
     }
 
     [RelayCommand]
-    public void SelectPaymentMode(PaymentMode mode)
+    public void SelectPaymentMode(object? mode)
     {
-        SelectedPaymentMode = mode;
-        if (mode == PaymentMode.Cash && CashTendered < GrandTotal)
+        var parsedMode = mode switch
+        {
+            PaymentMode paymentMode => paymentMode,
+            string s when Enum.TryParse<PaymentMode>(s, true, out var fromString) => fromString,
+            _ => SelectedPaymentMode
+        };
+
+        if (parsedMode == SelectedPaymentMode)
+        {
+            return;
+        }
+
+        SelectedPaymentMode = parsedMode;
+        if (parsedMode == PaymentMode.Cash && CashTendered < GrandTotal)
         {
             CashTendered = GrandTotal;
         }
@@ -123,9 +195,51 @@ public sealed partial class PosViewModel : StatefulViewModelBase
     }
 
     [RelayCommand]
-    public void SetQuickCashTendered(decimal amount)
+    public void UpdateSplitPaymentAmount((SplitPaymentLineViewModel line, object? amount) payload)
     {
-        CashTendered = amount;
+        if (payload.line is null)
+        {
+            return;
+        }
+
+        var parsedAmount = payload.amount switch
+        {
+            decimal d => d,
+            double d => (decimal)d,
+            float f => (decimal)f,
+            int i => i,
+            long l => l,
+            string s when decimal.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) => value,
+            string s when decimal.TryParse(s, out var value) => value,
+            _ => 0m
+        };
+
+        payload.line.Amount = Math.Max(0m, parsedAmount);
+        OnPropertyChanged(nameof(TotalSplitPaymentAmount));
+        OnPropertyChanged(nameof(RemainingSplitAmount));
+    }
+
+    [RelayCommand]
+    public void SetQuickCashTendered(object? amount)
+    {
+        var parsedAmount = amount switch
+        {
+            decimal d => d,
+            double d => (decimal)d,
+            float f => (decimal)f,
+            int i => i,
+            long l => l,
+            string s when decimal.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out var value) => value,
+            string s when decimal.TryParse(s, out var value) => value,
+            _ => 0m
+        };
+
+        if (parsedAmount <= 0m)
+        {
+            return;
+        }
+
+        CashTendered = parsedAmount;
         OnPropertyChanged(nameof(ChangeToReturn));
     }
 
@@ -133,6 +247,134 @@ public sealed partial class PosViewModel : StatefulViewModelBase
     public void ToggleHeldBillsDrawer()
     {
         IsHeldBillsDrawerOpen = !IsHeldBillsDrawerOpen;
+    }
+
+    [RelayCommand]
+    public void ToggleSplitPayment()
+    {
+        IsSplitPaymentEnabled = !IsSplitPaymentEnabled;
+        if (IsSplitPaymentEnabled)
+        {
+            SplitCashAmount = GrandTotal;
+            SplitUpiAmount = 0m;
+            SplitCardAmount = 0m;
+            if (SplitPayments.Count == 0)
+            {
+                SplitPayments.Add(new SplitPaymentLineViewModel(PaymentMode.Cash, GrandTotal));
+            }
+        }
+        else
+        {
+            SplitCashAmount = 0m;
+            SplitUpiAmount = 0m;
+            SplitCardAmount = 0m;
+            SplitPayments.Clear();
+        }
+
+        OnPropertyChanged(nameof(TotalSplitPaymentAmount));
+        OnPropertyChanged(nameof(RemainingSplitAmount));
+    }
+
+    [RelayCommand]
+    public void AddSplitPaymentLine()
+    {
+        if (!IsSplitPaymentEnabled || SplitPayments.Count >= 3)
+        {
+            return;
+        }
+
+        var defaultMode = SplitPayments.Any(x => x.Mode == PaymentMode.Upi) ? PaymentMode.Card : PaymentMode.Upi;
+        SplitPayments.Add(new SplitPaymentLineViewModel(defaultMode, 0m));
+        OnPropertyChanged(nameof(TotalSplitPaymentAmount));
+        OnPropertyChanged(nameof(RemainingSplitAmount));
+    }
+
+    [RelayCommand]
+    public void RemoveSplitPaymentLine(SplitPaymentLineViewModel line)
+    {
+        if (!IsSplitPaymentEnabled || SplitPayments.Count <= 1)
+        {
+            return;
+        }
+
+        SplitPayments.Remove(line);
+        OnPropertyChanged(nameof(TotalSplitPaymentAmount));
+        OnPropertyChanged(nameof(RemainingSplitAmount));
+    }
+
+    [RelayCommand]
+    public void SetSplitPaymentMode((SplitPaymentLineViewModel line, string mode) payload)
+    {
+        if (payload.line is null || string.IsNullOrWhiteSpace(payload.mode))
+        {
+            return;
+        }
+
+        if (Enum.TryParse<PaymentMode>(payload.mode, true, out var parsed))
+        {
+            payload.line.Mode = parsed;
+        }
+    }
+
+    partial void OnCustomerPhoneChanged(string value)
+    {
+        _ = LoadCustomerSuggestionsAsync(value);
+    }
+
+    partial void OnCustomerNameChanged(string value)
+    {
+        if (string.IsNullOrWhiteSpace(CustomerPhone))
+        {
+            _ = LoadCustomerSuggestionsAsync(value);
+        }
+    }
+
+    [RelayCommand]
+    public async Task LoadCustomerSuggestionsAsync(string? query = null)
+    {
+        var searchText = string.IsNullOrWhiteSpace(query)
+            ? (string.IsNullOrWhiteSpace(CustomerPhone) ? CustomerName : CustomerPhone)
+            : query.Trim();
+
+        _customerLookupCts?.Cancel();
+        _customerLookupCts?.Dispose();
+        _customerLookupCts = new CancellationTokenSource(TimeSpan.FromSeconds(2));
+        var ct = _customerLookupCts.Token;
+
+        if (string.IsNullOrWhiteSpace(searchText) || searchText.Length < 3)
+        {
+            CustomerSuggestions.Clear();
+            IsCustomerSuggestionsOpen = false;
+            return;
+        }
+
+        try
+        {
+            var matches = await _api.SearchCustomersAsync(searchText, 8, ct);
+            CustomerSuggestions.Clear();
+            foreach (var c in matches)
+            {
+                CustomerSuggestions.Add(c);
+            }
+
+            IsCustomerSuggestionsOpen = CustomerSuggestions.Count > 0;
+        }
+        catch
+        {
+            CustomerSuggestions.Clear();
+            IsCustomerSuggestionsOpen = false;
+        }
+    }
+
+    [RelayCommand]
+    public void SelectCustomerSuggestion(CustomerDto customer)
+    {
+        SelectedCustomerId = customer.Id;
+        CustomerPhone = customer.Phone;
+        CustomerName = customer.Name;
+        CustomerGstin = customer.Gstin ?? string.Empty;
+        CustomerSuggestions.Clear();
+        IsCustomerSuggestionsOpen = false;
     }
 
     [RelayCommand]
@@ -221,6 +463,23 @@ public sealed partial class PosViewModel : StatefulViewModelBase
     }
 
     [RelayCommand]
+    public void ClearCurrentBill()
+    {
+        CartLines.Clear();
+        BillDiscountAmount = 0m;
+        CashTendered = 0m;
+        SelectedCustomerId = null;
+        CustomerPhone = string.Empty;
+        CustomerName = string.Empty;
+        CustomerGstin = string.Empty;
+        BillNotes = string.Empty;
+        CustomerSuggestions.Clear();
+        IsCustomerSuggestionsOpen = false;
+        RecalculateCart();
+        ToastMessage = "Current bill cleared.";
+    }
+
+    [RelayCommand]
     public void IncrementQuantity(CartLineViewModel line)
     {
         line.Quantity += 1m;
@@ -266,10 +525,15 @@ public sealed partial class PosViewModel : StatefulViewModelBase
         {
             var idempotencyKey = Guid.NewGuid();
             var lines = CartLines.Select(l => new CreateInvoiceLineInput(l.Product.Id, l.Quantity, l.Product.SellingPrice, l.DiscountAmount)).ToArray();
-            var payments = GrandTotal > 0m ? new[] { new InvoicePaymentInput(SelectedPaymentMode, GrandTotal) } : Array.Empty<InvoicePaymentInput>();
+            var payments = BuildPayments();
+            if (payments.Count == 0)
+            {
+                ToastMessage = "Please provide payment details before saving bill.";
+                return;
+            }
 
-            Guid? customerId = null;
-            if (!string.IsNullOrWhiteSpace(CustomerPhone))
+            Guid? customerId = SelectedCustomerId;
+            if (!customerId.HasValue && !string.IsNullOrWhiteSpace(CustomerPhone))
             {
                 try
                 {
@@ -297,14 +561,15 @@ public sealed partial class PosViewModel : StatefulViewModelBase
                 Payments: payments,
                 CustomerId: customerId,
                 PlaceOfSupplyCode: CustomerGstin?.Length >= 2 ? CustomerGstin[..2] : _session.SellerStateCode,
-                Notes: BillDiscountAmount > 0 ? $"Special bill discount ₹{BillDiscountAmount:N2} applied" : null);
+                Notes: BuildInvoiceNotes());
 
             try
             {
                 var saved = await _api.CreateInvoiceAsync(command, ct);
                 IsOfflineMode = false;
                 LastReceiptNumber = saved.InvoiceNumber;
-                ToastMessage = $"Bill {saved.InvoiceNumber} saved (₹{saved.GrandTotal:N2}). Mode: {SelectedPaymentMode}.";
+
+                await SavePdfAndTryPrintAsync(saved.Id, saved.InvoiceNumber, ct);
             }
             catch
             {
@@ -312,17 +577,193 @@ public sealed partial class PosViewModel : StatefulViewModelBase
                 IsOfflineMode = true;
                 await _localStore.EnqueueOfflineInvoiceAsync(command, ct);
                 LastReceiptNumber = $"OFF-{idempotencyKey.ToString("N")[..6].ToUpperInvariant()}";
+                LastSavedPdfPath = null;
                 ToastMessage = $"Saved offline as {LastReceiptNumber}. Will sync on LAN reconnect.";
             }
 
             CartLines.Clear();
             CashTendered = 0m;
             BillDiscountAmount = 0m;
+            SelectedCustomerId = null;
             CustomerPhone = string.Empty;
             CustomerName = string.Empty;
             CustomerGstin = string.Empty;
+            BillNotes = string.Empty;
+            IsSplitPaymentEnabled = false;
+            SplitPayments.Clear();
+            CustomerSuggestions.Clear();
+            IsCustomerSuggestionsOpen = false;
             RecalculateCart();
         }, showLoading: false);
+    }
+
+    private IReadOnlyList<InvoicePaymentInput> BuildPayments()
+    {
+        if (!IsSplitPaymentEnabled)
+        {
+            return GrandTotal > 0m
+                ? [new InvoicePaymentInput(SelectedPaymentMode, GrandTotal)]
+                : [];
+        }
+
+        var splitInputs = new List<InvoicePaymentInput>(3);
+        if (SplitCashAmount > 0m)
+        {
+            splitInputs.Add(new InvoicePaymentInput(PaymentMode.Cash, SplitCashAmount));
+        }
+
+        if (SplitUpiAmount > 0m)
+        {
+            splitInputs.Add(new InvoicePaymentInput(PaymentMode.Upi, SplitUpiAmount));
+        }
+
+        if (SplitCardAmount > 0m)
+        {
+            splitInputs.Add(new InvoicePaymentInput(PaymentMode.Card, SplitCardAmount));
+        }
+
+        if (splitInputs.Count > 0)
+        {
+            var splitTotal = splitInputs.Sum(x => x.Amount);
+            if (Math.Abs(splitTotal - GrandTotal) > 0.5m)
+            {
+                ToastMessage = $"Split payment total ₹{splitTotal:N2} must match bill total ₹{GrandTotal:N2}.";
+                return [];
+            }
+
+            return splitInputs;
+        }
+
+        var validLines = SplitPayments
+            .Where(x => x.Amount > 0m)
+            .Select(x => new InvoicePaymentInput(x.Mode, x.Amount))
+            .ToArray();
+
+        if (validLines.Length == 0)
+        {
+            return [];
+        }
+
+        var total = validLines.Sum(x => x.Amount);
+        if (Math.Abs(total - GrandTotal) > 0.5m)
+        {
+            ToastMessage = $"Split payment total ₹{total:N2} must match bill total ₹{GrandTotal:N2}.";
+            return [];
+        }
+
+        return validLines;
+    }
+
+    private string? BuildInvoiceNotes()
+    {
+        var notes = new List<string>(2);
+        if (BillDiscountAmount > 0)
+        {
+            notes.Add($"Special bill discount ₹{BillDiscountAmount:N2} applied");
+        }
+
+        if (!string.IsNullOrWhiteSpace(BillNotes))
+        {
+            notes.Add(BillNotes.Trim());
+        }
+
+        return notes.Count == 0 ? null : string.Join(" | ", notes);
+    }
+
+    private async Task SavePdfAndTryPrintAsync(Guid invoiceId, string invoiceNumber, CancellationToken ct)
+    {
+        var pdfResponse = await _api.GetInvoicePdfAsync(invoiceId, InvoicePageFormat.A4, ct);
+        if (!pdfResponse.IsSuccessStatusCode)
+        {
+            ToastMessage = $"Bill {invoiceNumber} saved, but PDF generation failed.";
+            return;
+        }
+
+        var pdfBytes = await pdfResponse.Content.ReadAsByteArrayAsync(ct);
+        if (pdfBytes.Length == 0)
+        {
+            ToastMessage = $"Bill {invoiceNumber} saved, but received an empty PDF.";
+            return;
+        }
+
+        Directory.CreateDirectory(PdfSaveDirectory);
+
+        var rawFileName = GetFileNameFromHeaders(pdfResponse.Content.Headers.ContentDisposition?.FileNameStar)
+            ?? GetFileNameFromHeaders(pdfResponse.Content.Headers.ContentDisposition?.FileName)
+            ?? $"{invoiceNumber.Replace('/', '-')}.pdf";
+
+        var fileName = EnsurePdfExtension(rawFileName);
+        var fullPath = Path.Combine(PdfSaveDirectory, fileName);
+        await File.WriteAllBytesAsync(fullPath, pdfBytes, ct);
+        LastSavedPdfPath = fullPath;
+
+        var printSucceeded = await TryPrintPdfAsync(fullPath);
+        if (printSucceeded)
+        {
+            ToastMessage = $"Bill {invoiceNumber} saved, PDF saved and sent to printer.";
+        }
+        else
+        {
+            ToastMessage = $"Bill {invoiceNumber} saved. PDF saved at '{fullPath}'. No printer configured.";
+        }
+    }
+
+    [RelayCommand]
+    public async Task ReprintLastSavedPdfAsync()
+    {
+        if (string.IsNullOrWhiteSpace(LastSavedPdfPath) || !File.Exists(LastSavedPdfPath))
+        {
+            ToastMessage = "No saved PDF found to print.";
+            return;
+        }
+
+        var printed = await TryPrintPdfAsync(LastSavedPdfPath);
+        ToastMessage = printed
+            ? $"Sent '{Path.GetFileName(LastSavedPdfPath)}' to printer."
+            : $"Could not print. PDF is saved at '{LastSavedPdfPath}'.";
+    }
+
+    private static string? GetFileNameFromHeaders(string? fileNameHeader)
+    {
+        if (string.IsNullOrWhiteSpace(fileNameHeader))
+        {
+            return null;
+        }
+
+        var trimmed = fileNameHeader.Trim().Trim('"');
+        return WebUtility.UrlDecode(trimmed);
+    }
+
+    private static string EnsurePdfExtension(string fileName)
+    {
+        if (fileName.EndsWith(".pdf", StringComparison.OrdinalIgnoreCase))
+        {
+            return fileName;
+        }
+
+        return $"{fileName}.pdf";
+    }
+
+    private static Task<bool> TryPrintPdfAsync(string pdfPath)
+    {
+        try
+        {
+            var info = new System.Diagnostics.ProcessStartInfo
+            {
+                FileName = pdfPath,
+                Verb = "print",
+                UseShellExecute = true,
+                CreateNoWindow = true,
+                WindowStyle = System.Diagnostics.ProcessWindowStyle.Hidden
+            };
+
+            var process = System.Diagnostics.Process.Start(info);
+            return Task.FromResult(process != null);
+        }
+        catch
+        {
+            return Task.FromResult(false);
+        }
     }
 
     public void RecalculateCart()
@@ -342,6 +783,18 @@ public sealed partial class PosViewModel : StatefulViewModelBase
         if (SelectedPaymentMode == PaymentMode.Cash && CashTendered < GrandTotal)
         {
             CashTendered = GrandTotal;
+        }
+
+        if (IsSplitPaymentEnabled && SplitPayments.Count > 0)
+        {
+            SplitPayments[0].Amount = GrandTotal;
+            OnPropertyChanged(nameof(TotalSplitPaymentAmount));
+            OnPropertyChanged(nameof(RemainingSplitAmount));
+        }
+
+        if (IsSplitPaymentEnabled)
+        {
+            SplitCashAmount = GrandTotal;
         }
 
         OnPropertyChanged(nameof(ChangeToReturn));

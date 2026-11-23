@@ -18,6 +18,10 @@
         <ShellContent ContentTemplate="{DataTemplate views:PosPage}" />
     </FlyoutItem>
 
+    <FlyoutItem Route="invoices">
+        <ShellContent ContentTemplate="{DataTemplate views:InvoicesPage}" />
+    </FlyoutItem>
+
     <FlyoutItem Route="inventory">
         <ShellContent ContentTemplate="{DataTemplate views:InventoryPage}" />
     </FlyoutItem>

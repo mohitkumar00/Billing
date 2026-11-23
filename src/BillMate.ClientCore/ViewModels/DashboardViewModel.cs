@@ -3,6 +3,7 @@ using BillMate.Application.Features.Invoices;
 using BillMate.ClientCore.Api;
 using BillMate.ClientCore.Offline;
 using BillMate.ClientCore.Services;
+using BillMate.Domain.Enums;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
 
@@ -15,6 +16,7 @@ public sealed partial class DashboardViewModel : StatefulViewModelBase
     private readonly IBillMateApi _api;
     private readonly OfflineLocalStore _localStore;
     private readonly OfflineSyncCoordinator _syncCoordinator;
+    private readonly ClientSessionState _session;
     private readonly INavigationService? _navigation;
 
     private static readonly QuickCommandItem[] AllCommands =
@@ -28,6 +30,9 @@ public sealed partial class DashboardViewModel : StatefulViewModelBase
 
     public ObservableCollection<InvoiceSummaryDto> RecentInvoices { get; } = [];
     public ObservableCollection<QuickCommandItem> FilteredCommands { get; } = [];
+
+    public bool CanCancelInvoices =>
+        _session.CurrentAuth?.Permissions.Any(p => string.Equals(p, "invoices.cancel", StringComparison.OrdinalIgnoreCase)) == true;
 
     [ObservableProperty]
     private decimal _todaySalesTotal;
@@ -54,11 +59,13 @@ public sealed partial class DashboardViewModel : StatefulViewModelBase
         IBillMateApi api,
         OfflineLocalStore localStore,
         OfflineSyncCoordinator syncCoordinator,
+        ClientSessionState session,
         INavigationService? navigation = null)
     {
         _api = api;
         _localStore = localStore;
         _syncCoordinator = syncCoordinator;
+        _session = session;
         _navigation = navigation;
         RefreshCommandFilter();
     }
@@ -70,6 +77,38 @@ public sealed partial class DashboardViewModel : StatefulViewModelBase
         {
             await _navigation.NavigateToAsync("//pos");
         }
+    }
+
+    [RelayCommand]
+    public async Task CancelInvoiceAsync(InvoiceSummaryDto? invoice, CancellationToken ct = default)
+    {
+        if (!CanCancelInvoices)
+        {
+            ToastMessage = "You are not authorized to cancel invoices.";
+            return;
+        }
+
+        if (invoice is null)
+            return;
+
+        if (invoice.Status == InvoiceStatus.Cancelled)
+        {
+            ToastMessage = $"Invoice {invoice.InvoiceNumber} is already cancelled.";
+            return;
+        }
+
+        await SafeExecuteAsync(async () =>
+        {
+            var reason = $"Cancelled from dashboard on {DateTimeOffset.Now:dd-MMM-yyyy HH:mm}";
+            await _api.CancelInvoiceAsync(invoice.Id, new CancelInvoiceBody(reason), ct);
+
+            var recent = await _api.GetInvoicesAsync(1, 10, ct);
+            RecentInvoices.Clear();
+            foreach (var inv in recent) RecentInvoices.Add(inv);
+            IsEmpty = RecentInvoices.Count == 0;
+
+            ToastMessage = $"Invoice {invoice.InvoiceNumber} cancelled.";
+        });
     }
 
     [RelayCommand]

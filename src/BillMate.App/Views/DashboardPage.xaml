@@ -5,6 +5,7 @@
               xmlns:controls="clr-namespace:BillMate.App.Controls"
               xmlns:inv="clr-namespace:BillMate.Application.Features.Invoices;assembly=BillMate.Application"
               x:Class="BillMate.App.Views.DashboardPage"
+              x:Name="DashboardRoot"
               x:DataType="vm:DashboardViewModel"
               BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
               Shell.NavBarIsVisible="False"
@@ -147,7 +148,7 @@
                                 <Border StrokeThickness="0" StrokeShape="RoundRectangle 8"
                                         BackgroundColor="{AppThemeBinding Light=#08000000, Dark=#14FFFFFF}"
                                         Padding="14,12" Margin="0,4">
-                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto" ColumnSpacing="16" VerticalOptions="Center">
+                                    <Grid ColumnDefinitions="Auto,*,Auto,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
                                         <Label Grid.Column="0" Text="{Binding InvoiceNumber}" FontAttributes="Bold" FontSize="14" VerticalOptions="Center" />
                                         <Label Grid.Column="1" Text="{Binding InvoiceDate, StringFormat='{}{0:dd MMM yyyy, hh:mm tt}'}"
                                                FontSize="12" TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}"
@@ -157,7 +158,12 @@
                                             <Label Text="{Binding Status}" FontSize="11" FontAttributes="Bold"
                                                    TextColor="{StaticResource BrandPrimary}" />
                                         </Border>
-                                        <Label Grid.Column="3" Text="{Binding GrandTotal, StringFormat='₹{0:N2}'}"
+                                         <Button Grid.Column="3" IsVisible="{Binding Source={x:Reference DashboardRoot}, Path=BindingContext.CanCancelInvoices}"
+                                                 Text="Cancel" HeightRequest="30" Padding="10,0" FontSize="11"
+                                                BackgroundColor="#7F1D1D" TextColor="#FEE2E2" CornerRadius="6"
+                                                Command="{Binding Source={x:Reference DashboardRoot}, Path=BindingContext.CancelInvoiceCommand}"
+                                                CommandParameter="{Binding .}" />
+                                        <Label Grid.Column="4" Text="{Binding GrandTotal, StringFormat='₹{0:N2}'}"
                                                Style="{StaticResource TabularMoneyStyle}" FontSize="15" FontAttributes="Bold"
                                                HorizontalTextAlignment="End" VerticalOptions="Center" />
                                     </Grid>

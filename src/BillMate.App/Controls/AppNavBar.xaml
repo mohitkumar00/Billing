@@ -48,6 +48,15 @@
                         HeightRequest="38"
                         Clicked="OnPosClicked" />
 
+                <Button x:Name="BtnInvoices"
+                        Text="🧾 Invoices"
+                        FontSize="13" FontAttributes="Bold"
+                        CornerRadius="8"
+                        Padding="14,8"
+                        MinimumHeightRequest="38"
+                        HeightRequest="38"
+                        Clicked="OnInvoicesClicked" />
+
                 <!-- Inventory & Stock Tab -->
                 <Button x:Name="BtnInventory"
                         Text="📦 Inventory &amp; Stock"

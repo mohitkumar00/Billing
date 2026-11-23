@@ -90,6 +90,41 @@ BillMate is a **cross-platform billing and business management solution** for sm
 - Share invoice via WhatsApp, SMS, or Email directly from app
 - QR code on bill for payment (UPI deep link)
 
+#### 3.1.4 Bill Cancellation, Return & Audit Controls (India GST-first)
+- Invoice cancellation available only for authorized roles (Admin/Manager)
+- Mandatory cancellation reason capture (user-entered text, min length rule)
+- Auto-credit-note generation on cancellation with clear trace to original invoice
+- Automatic stock reversal for inventory items
+- Payment impact handling:
+  - Paid cash/UPI/card bill cancellation creates customer credit or refund workflow entry
+  - Credit bill cancellation re-opens outstanding exposure safely
+- Immutable audit event for cancellation including actor, timestamp, device, old/new values
+- UI visibility rules:
+  - Cashier can view bill status but cannot cancel
+  - Cancel action disabled/hidden for already cancelled invoices
+- Counter-safe behavior: idempotent cancel API to avoid duplicate credit notes on retries
+
+#### 3.1.5 Billing lifecycle states (recommended)
+- `Draft` → `Hold` → `Confirmed` → `Paid/Partial` → `Cancelled`
+- Operational policy:
+  - Same-day mistakes: cancel + issue credit note
+  - Post-day-close changes: return workflow + financial adjustment journal
+
+---
+
+### 3.10 Recommended Industry-Standard Features (India GST-first)
+
+| Feature Area | Why it matters for SMB retail | Implementation direction |
+|---|---|---|
+| Invoice history timeline with actions | Faster counter corrections and customer support | Add invoice list filters + detail drawer + actions (print/share/cancel) |
+| Structured returns/exchange (RMA-lite) | Common in apparel/electronics shops | Add return document type + stock inward + refund/credit mode |
+| Shift open/close with cash reconciliation | Prevents cashier leakage and disputes | Add `cash_sessions` with expected vs actual cash and variance reason |
+| Day-end Z report | Daily owner review in 1 click | Snapshot totals by payment mode, tax, discounts, voids/cancels |
+| Discount approval flow | Cashier abuse control | Rule: discount > threshold requires manager PIN/override |
+| Customer credit risk guardrails | Avoid bad debt growth | Credit limit checks and override permission |
+| GST exception dashboard | Filing readiness and error prevention | Highlight missing GSTIN/HSN, mismatch tax slabs, negative stock conflicts |
+| Multi-printer routing | Faster operations in larger stores | Per-counter thermal profile + print templates |
+
 ---
 
 ### 3.2 📦 Inventory Management
@@ -532,6 +567,16 @@ flowchart LR
 | Invoice generation time | < 3 seconds |
 | NPS (client satisfaction) | ≥ 50 |
 | Onboarding time (new shop) | < 30 minutes |
+
+### 10.1 Cancellation & compliance quality KPIs
+
+| Metric | Target |
+|---|---|
+| Unauthorized cancel attempts blocked | 100% |
+| Duplicate cancellation incidence | 0 |
+| Cancel-to-credit-note linkage integrity | 100% |
+| Audit completeness for cancel actions | 100% |
+| Cancellation API p95 latency | < 600 ms |
 
 ---
 

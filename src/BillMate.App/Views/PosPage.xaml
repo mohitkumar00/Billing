@@ -3,7 +3,7 @@
               xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
               xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
               xmlns:prod="clr-namespace:BillMate.Application.Features.Products;assembly=BillMate.Application"
-              xmlns:enums="clr-namespace:BillMate.Domain.Enums;assembly=BillMate.Domain"
+              xmlns:party="clr-namespace:BillMate.Application.Features.Parties;assembly=BillMate.Application"
               xmlns:controls="clr-namespace:BillMate.App.Controls"
               x:Class="BillMate.App.Views.PosPage"
               x:Name="PosRoot"
@@ -80,20 +80,49 @@
             <Grid RowDefinitions="Auto,Auto,*,Auto,Auto" RowSpacing="10">
 
                 <!-- Header + Hold Actions -->
-                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto" ColumnSpacing="8">
+                <Grid Grid.Row="0" ColumnDefinitions="*,Auto,Auto,Auto" ColumnSpacing="8">
                     <Label Text="Current Bill" FontSize="18" FontAttributes="Bold" VerticalOptions="Center" />
                     <Button Grid.Column="1" Text="Hold (Park)" Command="{Binding HoldCurrentBillCommand}"
                             CornerRadius="8" Padding="10,4" HeightRequest="32" FontSize="11" BackgroundColor="#27272A" TextColor="#FAFAFA" />
                     <Button Grid.Column="2" Text="{Binding HeldBills.Count, StringFormat='Parked ({0})'}"
                             Command="{Binding ToggleHeldBillsDrawerCommand}"
                             CornerRadius="8" Padding="10,4" HeightRequest="32" FontSize="11" BackgroundColor="#3F3F46" TextColor="#FBBF24" />
+                    <Button Grid.Column="3" Text="Clear Bill" Command="{Binding ClearCurrentBillCommand}"
+                            CornerRadius="8" Padding="10,4" HeightRequest="32" FontSize="11" BackgroundColor="#3F3F46" TextColor="#FCA5A5" />
                 </Grid>
 
-                <!-- Customer Details Row -->
-                <Grid Grid.Row="1" ColumnDefinitions="*,*" ColumnSpacing="8">
-                    <Entry Placeholder="Customer Phone" Text="{Binding CustomerPhone}" HeightRequest="36" FontSize="12" />
-                    <Entry Placeholder="Name / GSTIN" Text="{Binding CustomerName}" HeightRequest="36" FontSize="12" />
-                </Grid>
+                <!-- Customer Details + Suggestions -->
+                <VerticalStackLayout Grid.Row="1" Spacing="6">
+                    <Grid ColumnDefinitions="{OnIdiom Desktop='*,*', Tablet='*,*', Phone='*'}"
+                          RowDefinitions="{OnIdiom Desktop='Auto', Tablet='Auto', Phone='Auto,Auto'}"
+                          ColumnSpacing="8"
+                          RowSpacing="8">
+                        <Entry Grid.Row="0" Grid.Column="0"
+                               Placeholder="Customer Phone" Text="{Binding CustomerPhone}"
+                               HeightRequest="36" FontSize="12" />
+                        <Entry Grid.Row="{OnIdiom Desktop=0, Tablet=0, Phone=1}"
+                               Grid.Column="{OnIdiom Desktop=1, Tablet=1, Phone=0}"
+                               Placeholder="Customer Name" Text="{Binding CustomerName}"
+                               HeightRequest="36" FontSize="12" />
+                    </Grid>
+
+                    <Border IsVisible="{Binding IsCustomerSuggestionsOpen}" BackgroundColor="#0F172A" Stroke="#334155" StrokeShape="RoundRectangle 8" Padding="8">
+                        <CollectionView ItemsSource="{Binding CustomerSuggestions}" SelectionMode="None" HeightRequest="120">
+                            <CollectionView.ItemTemplate>
+                                <DataTemplate x:DataType="party:CustomerDto">
+                                    <Button Text="{Binding Name}"
+                                            Command="{Binding Source={x:Reference PosRoot}, Path=BindingContext.SelectCustomerSuggestionCommand}"
+                                            CommandParameter="{Binding .}"
+                                            HorizontalOptions="Fill"
+                                            HorizontalTextAlignment="Start"
+                                            BackgroundColor="#1E293B"
+                                            TextColor="#E2E8F0"
+                                            Margin="0,2" />
+                                </DataTemplate>
+                            </CollectionView.ItemTemplate>
+                        </CollectionView>
+                    </Border>
+                </VerticalStackLayout>
 
                 <!-- Cart Items List -->
                 <CollectionView Grid.Row="2" ItemsSource="{Binding CartLines}">
@@ -142,18 +171,44 @@
                         <Label Grid.Column="1" Text="{Binding GrandTotal, StringFormat='₹{0:N2}'}" FontSize="24" FontAttributes="Bold" TextColor="#10B981" Style="{StaticResource TabularMoneyStyle}" />
                     </Grid>
 
+                    <VerticalStackLayout Spacing="4" Margin="0,2,0,0">
+                        <Label Text="Bill Notes" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
+                        <Entry Text="{Binding BillNotes}" Placeholder="Optional note for this bill" HeightRequest="34" FontSize="12" />
+                    </VerticalStackLayout>
+
                     <!-- Payment Mode Selector -->
                     <Label Text="Payment Mode:" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" Margin="0,2,0,0" />
                     <HorizontalStackLayout Spacing="6">
                         <Button Text="💵 Cash" HeightRequest="36" Padding="12,0" FontSize="12" FontAttributes="Bold"
-                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="{x:Static enums:PaymentMode.Cash}" />
+                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="Cash" />
                         <Button Text="📱 UPI" HeightRequest="36" Padding="12,0" FontSize="12" FontAttributes="Bold"
-                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="{x:Static enums:PaymentMode.Upi}" />
+                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="Upi" />
                         <Button Text="💳 Card" HeightRequest="36" Padding="12,0" FontSize="12" FontAttributes="Bold"
-                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="{x:Static enums:PaymentMode.Card}" />
+                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="Card" />
                         <Button Text="📝 Credit" HeightRequest="36" Padding="12,0" FontSize="12" FontAttributes="Bold"
-                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="{x:Static enums:PaymentMode.Credit}" />
+                                Command="{Binding SelectPaymentModeCommand}" CommandParameter="Credit" />
                     </HorizontalStackLayout>
+
+                    <HorizontalStackLayout Spacing="8" Margin="0,2,0,0">
+                        <Button Text="Split Payment" HeightRequest="32" Padding="12,0" FontSize="11"
+                                BackgroundColor="#27272A" TextColor="#E2E8F0"
+                                Command="{Binding ToggleSplitPaymentCommand}" />
+                        <Label Text="{Binding TotalSplitPaymentAmount, StringFormat='Split Total: ₹{0:N2}'}"
+                               FontSize="11" TextColor="#93C5FD" VerticalTextAlignment="Center"
+                               IsVisible="{Binding IsSplitPaymentEnabled}" />
+                        <Label Text="{Binding RemainingSplitAmount, StringFormat='Remaining: ₹{0:N2}'}"
+                               FontSize="11" TextColor="#FCA5A5" VerticalTextAlignment="Center"
+                               IsVisible="{Binding IsSplitPaymentEnabled}" />
+                    </HorizontalStackLayout>
+
+                    <Grid IsVisible="{Binding IsSplitPaymentEnabled}" ColumnDefinitions="Auto,*,Auto,*,Auto,*" ColumnSpacing="6">
+                        <Label Text="Cash" FontSize="11" TextColor="#E2E8F0" VerticalTextAlignment="Center" />
+                        <Entry Grid.Column="1" Text="{Binding SplitCashAmount}" Keyboard="Numeric" HeightRequest="30" FontSize="11" />
+                        <Label Grid.Column="2" Text="UPI" FontSize="11" TextColor="#E2E8F0" VerticalTextAlignment="Center" />
+                        <Entry Grid.Column="3" Text="{Binding SplitUpiAmount}" Keyboard="Numeric" HeightRequest="30" FontSize="11" />
+                        <Label Grid.Column="4" Text="Card" FontSize="11" TextColor="#E2E8F0" VerticalTextAlignment="Center" />
+                        <Entry Grid.Column="5" Text="{Binding SplitCardAmount}" Keyboard="Numeric" HeightRequest="30" FontSize="11" />
+                    </Grid>
 
                     <!-- Quick Cash Tender Buttons -->
                     <HorizontalStackLayout Spacing="6" Margin="0,2,0,0">
@@ -188,9 +243,14 @@
                 </VerticalStackLayout>
 
                 <!-- Save & Print Action -->
-                <Button Grid.Row="4" Text="Save &amp; Print Bill (F9)" Style="{StaticResource PrimaryActionButton}"
-                        HeightRequest="48" FontSize="15"
-                        Command="{Binding CheckoutCommand}" />
+                <VerticalStackLayout Grid.Row="4" Spacing="6">
+                    <Button Text="Save &amp; Print Bill (F9)" Style="{StaticResource PrimaryActionButton}"
+                            HeightRequest="48" FontSize="15"
+                            Command="{Binding CheckoutCommand}" />
+                    <Button Text="Reprint Last Saved PDF" HeightRequest="34" FontSize="12"
+                            BackgroundColor="#27272A" TextColor="#E2E8F0"
+                            Command="{Binding ReprintLastSavedPdfCommand}" />
+                </VerticalStackLayout>
             </Grid>
         </Border>
         </Grid>
