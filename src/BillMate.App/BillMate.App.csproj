@@ -1,7 +1,8 @@
 <Project Sdk="Microsoft.NET.Sdk">
   <PropertyGroup>
-    <TargetFrameworks>net10.0-windows10.0.19041.0</TargetFrameworks>
-    <TargetFrameworks Condition="'$(EnableAndroidTarget)' == 'true'">net10.0-android;net10.0-windows10.0.19041.0</TargetFrameworks>
+    <!-- Isolated single-platform target to eliminate cross-workload dependencies -->
+    <TargetFramework Condition="'$(EnableAndroidTarget)' == 'true'">net10.0-android</TargetFramework>
+    <TargetFramework Condition="'$(EnableAndroidTarget)' != 'true'">net10.0-windows10.0.19041.0</TargetFramework>
     <MSBuildEnableWorkloadResolver Condition="'$(EnableAndroidTarget)' != 'true'">false</MSBuildEnableWorkloadResolver>
     <OutputType>Exe</OutputType>
     <RootNamespace>BillMate.App</RootNamespace>
