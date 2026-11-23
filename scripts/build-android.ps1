@@ -1,70 +1,100 @@
 ﻿<#
 .SYNOPSIS
-    Builds and packages the Android APK for BillMate POS.
+    Builds the BillMate Android application (.apk / .aab) for mobile and handheld POS devices.
 .DESCRIPTION
-    Checks for the Android SDK and Java JDK, configures environment paths,
-    and runs dotnet publish for net10.0-android.
+    Checks for .NET MAUI Android workload, OpenJDK, and Android SDK, then compiles and publishes
+    a debug or signed release APK.
+.EXAMPLE
+    .\scripts\build-android.ps1
+    .\scripts\build-android.ps1 -Configuration Release -PackageFormat apk
+    .\scripts\build-android.ps1 -Configuration Release -PackageFormat aab -KeystorePath my-key.keystore -KeystorePass "pass123"
 #>
-
 param(
+    [ValidateSet("Debug", "Release")]
     [string]$Configuration = "Release",
-    [string]$AndroidSdkPath = "$env:LOCALAPPDATA\Android\Sdk",
-    [string]$OutputDir = "dist\android"
+
+    [ValidateSet("apk", "aab")]
+    [string]$PackageFormat = "apk",
+
+    [string]$OutputPath = ".\artifacts\android",
+
+    [string]$KeystorePath = "",
+    [string]$KeystoreAlias = "billmate",
+    [string]$KeystorePass = "",
+
+    [string]$AppTitle = "BillMate POS",
+    [string]$ApplicationId = "com.billmate.pos"
 )
 
 $ErrorActionPreference = "Stop"
 
-Write-Host "========================================" -ForegroundColor Cyan
-Write-Host " BillMate Android APK Build Script       " -ForegroundColor Cyan
-Write-Host "========================================" -ForegroundColor Cyan
+Write-Host "==========================================================" -ForegroundColor Cyan
+Write-Host "         BillMate Android Build Pipeline                  " -ForegroundColor Cyan
+Write-Host "==========================================================" -ForegroundColor Cyan
 
-# 1. Check for Android SDK
-if (-not (Test-Path $AndroidSdkPath)) {
-    $fallbackPaths = @(
-        "$env:LOCALAPPDATA\Android\Sdk",
-        "C:\Program Files (x86)\Android\android-sdk",
-        "$env:ANDROID_HOME",
-        "$env:ANDROID_SDK_ROOT"
-    ) | Where-Object { $_ -and (Test-Path $_) }
+# 1. Check .NET SDK Workloads
+Write-Host "==> Checking .NET workloads..." -ForegroundColor Yellow
+$workloadOutput = dotnet workload list | Out-String
+$hasAndroidWorkload = $workloadOutput -match "maui-android" -or $workloadOutput -match "android"
 
-    if ($fallbackPaths.Count -gt 0) {
-        $AndroidSdkPath = $fallbackPaths[0]
-    }
+if (-not $hasAndroidWorkload) {
+    Write-Warning "Android workload is not detected in 'dotnet workload list'."
+    Write-Host @"
+
+[ACTION REQUIRED] To install the Android workload without stalling, run this command in an Administrator PowerShell:
+
+  dotnet workload install maui-android --skip-manifest-update --source https://api.nuget.org/v3/index.json --ignore-failed-sources
+
+Or install via Visual Studio Installer -> Modify -> Check '.NET Multi-platform App UI development'.
+"@ -ForegroundColor Magenta
+    throw "Missing required Android workload."
 }
 
-if (-not (Test-Path $AndroidSdkPath)) {
-    Write-Host ""
-    Write-Host "❌ Android SDK not detected on this machine." -ForegroundColor Red
-    Write-Host ""
-    Write-Host "To install the Android SDK on Windows:" -ForegroundColor Yellow
-    Write-Host "  1. Option A (Automated via winget):" -ForegroundColor White
-    Write-Host "     winget install Google.AndroidStudio" -ForegroundColor Cyan
-    Write-Host "  2. Option B (Command-line tools):" -ForegroundColor White
-    Write-Host "     Install Java JDK 17+: winget install Microsoft.OpenJDK.17" -ForegroundColor Cyan
-    Write-Host "     Download Android Command-Line Tools from: https://developer.android.com/studio#command-line-tools-only" -ForegroundColor Cyan
-    Write-Host "     Extract to $env:LOCALAPPDATA\Android\Sdk\cmdline-tools\latest" -ForegroundColor Cyan
-    Write-Host "     Run: sdkmanager 'platforms;android-34' 'build-tools;34.0.0'" -ForegroundColor Cyan
-    Write-Host ""
-    Write-Host "After installing Android SDK, rerun this script:" -ForegroundColor Green
-    Write-Host "  .\scripts\build-android.ps1 -AndroidSdkPath 'C:\Users\YourUser\AppData\Local\Android\Sdk'" -ForegroundColor White
-    exit 1
+# 2. Prepare Output Directory
+$absOutput = [System.IO.Path]::GetFullPath($OutputPath)
+if (-not (Test-Path $absOutput)) {
+    New-Item -ItemType Directory -Force -Path $absOutput | Out-Null
 }
 
-Write-Host "Using Android SDK at: $AndroidSdkPath" -ForegroundColor Green
-$env:ANDROID_HOME = $AndroidSdkPath
-$env:ANDROID_SDK_ROOT = $AndroidSdkPath
+# 3. Assemble Build Arguments
+$projectPath = ".\src\BillMate.App\BillMate.App.csproj"
+$framework = "net10.0-android"
 
-# 2. Build and publish Android APK
-New-Item -ItemType Directory -Path $OutputDir -Force | Out-Null
+# Fallback test: check if net10.0-android or net10.0-android36.0 is targeted
+$buildArgs = @(
+    "publish", $projectPath,
+    "-f", $framework,
+    "-c", $Configuration,
+    "-p:EnableAndroidTarget=true",
+    "-p:AndroidPackageFormat=$PackageFormat",
+    "-p:ApplicationTitle=$AppTitle",
+    "-p:ApplicationId=$ApplicationId",
+    "-o", $absOutput
+)
 
-Write-Host "Publishing BillMate Android APK ($Configuration)..." -ForegroundColor Yellow
-dotnet publish "src\BillMate.App\BillMate.App.csproj" `
-    -f net10.0-android `
-    -c $Configuration `
-    -p:AndroidSdkDirectory="$AndroidSdkPath" `
-    -o $OutputDir
+if (-not [string]::IsNullOrWhiteSpace($KeystorePath) -and (Test-Path $KeystorePath)) {
+    Write-Host "==> Signing with Keystore: $KeystorePath" -ForegroundColor Cyan
+    $buildArgs += @(
+        "-p:AndroidKeyStore=true",
+        "-p:AndroidSigningKeyStore=$KeystorePath",
+        "-p:AndroidSigningKeyAlias=$KeystoreAlias",
+        "-p:AndroidSigningStorePass=$KeystorePass",
+        "-p:AndroidSigningKeyPass=$KeystorePass"
+    )
+} else {
+    Write-Host "==> Generating unsigned/default-signed package ($PackageFormat)..." -ForegroundColor Yellow
+    $buildArgs += "-p:AndroidKeyStore=false"
+}
 
-Write-Host ""
-Write-Host "✅ Android APK successfully published to $OutputDir" -ForegroundColor Green
-Write-Host "To install on your connected Android tablet/phone via USB:" -ForegroundColor Cyan
-Write-Host "  adb install $OutputDir\com.billmate.pos-Signed.apk" -ForegroundColor White
+Write-Host "==> Running: dotnet $($buildArgs -join ' ')" -ForegroundColor Cyan
+& dotnet @buildArgs
+
+if ($LASTEXITCODE -ne 0) {
+    throw "Android build failed with exit code $LASTEXITCODE."
+}
+
+Write-Host "`n[SUCCESS] Android build complete!" -ForegroundColor Green
+Write-Host "Output located at: $absOutput" -ForegroundColor Green
+Get-ChildItem -Path $absOutput -Include *.apk, *.aab -Recurse | ForEach-Object {
+    Write-Host "  -> $($_.FullName) ($([Math]::Round($_.Length / 1MB, 2)) MB)" -ForegroundColor Yellow
+}
