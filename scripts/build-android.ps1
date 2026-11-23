@@ -16,7 +16,7 @@ param(
     [ValidateSet("apk", "aab")]
     [string]$PackageFormat = "apk",
 
-    [string]$OutputPath = ".\artifacts\android",
+    [string]$OutputPath = "artifacts\android",
 
     [string]$KeystorePath = "",
     [string]$KeystoreAlias = "billmate",
@@ -28,9 +28,13 @@ param(
 
 $ErrorActionPreference = "Stop"
 
+# Automatically resolve repository root regardless of current working directory
+$repoRoot = (Resolve-Path "$PSScriptRoot\..").Path
+
 Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "         BillMate Android Build Pipeline                  " -ForegroundColor Cyan
 Write-Host "==========================================================" -ForegroundColor Cyan
+Write-Host "==> Repository Root: $repoRoot" -ForegroundColor DarkGray
 
 # 1. Check .NET SDK Workloads
 Write-Host "==> Checking .NET workloads..." -ForegroundColor Yellow
@@ -51,32 +55,40 @@ Or install via Visual Studio Installer -> Modify -> Check '.NET Multi-platform A
 }
 
 # 2. Prepare Output Directory
-$absOutput = [System.IO.Path]::GetFullPath($OutputPath)
+$absOutput = if ([System.IO.Path]::IsPathRooted($OutputPath)) {
+    [System.IO.Path]::GetFullPath($OutputPath)
+} else {
+    [System.IO.Path]::GetFullPath((Join-Path $repoRoot $OutputPath))
+}
+
 if (-not (Test-Path $absOutput)) {
     New-Item -ItemType Directory -Force -Path $absOutput | Out-Null
 }
 
 # 3. Assemble Build Arguments
-$projectPath = ".\src\BillMate.App\BillMate.App.csproj"
+$projectPath = Join-Path $repoRoot "src\BillMate.App\BillMate.App.csproj"
 $framework = "net10.0-android"
 
-# Fallback test: check if net10.0-android or net10.0-android36.0 is targeted
 $buildArgs = @(
-    "publish", $projectPath,
+    "publish", "`"$projectPath`"",
     "-f", $framework,
     "-c", $Configuration,
     "-p:EnableAndroidTarget=true",
     "-p:AndroidPackageFormat=$PackageFormat",
-    "-p:ApplicationTitle=$AppTitle",
+    "-p:ApplicationTitle=`"$AppTitle`"",
     "-p:ApplicationId=$ApplicationId",
-    "-o", $absOutput
+    "-o", "`"$absOutput`""
 )
 
-if (-not [string]::IsNullOrWhiteSpace($KeystorePath) -and (Test-Path $KeystorePath)) {
-    Write-Host "==> Signing with Keystore: $KeystorePath" -ForegroundColor Cyan
+$resolvedKeystore = if (-not [string]::IsNullOrWhiteSpace($KeystorePath)) {
+    if ([System.IO.Path]::IsPathRooted($KeystorePath)) { $KeystorePath } else { Join-Path $repoRoot $KeystorePath }
+} else { $null }
+
+if ($null -ne $resolvedKeystore -and (Test-Path $resolvedKeystore)) {
+    Write-Host "==> Signing with Keystore: $resolvedKeystore" -ForegroundColor Cyan
     $buildArgs += @(
         "-p:AndroidKeyStore=true",
-        "-p:AndroidSigningKeyStore=$KeystorePath",
+        "-p:AndroidSigningKeyStore=`"$resolvedKeystore`"",
         "-p:AndroidSigningKeyAlias=$KeystoreAlias",
         "-p:AndroidSigningStorePass=$KeystorePass",
         "-p:AndroidSigningKeyPass=$KeystorePass"

@@ -2,7 +2,7 @@
   <PropertyGroup>
     <TargetFrameworks>net10.0-windows10.0.19041.0</TargetFrameworks>
     <TargetFrameworks Condition="'$(EnableAndroidTarget)' == 'true'">net10.0-android;net10.0-windows10.0.19041.0</TargetFrameworks>
-    <MSBuildEnableWorkloadResolver>false</MSBuildEnableWorkloadResolver>
+    <MSBuildEnableWorkloadResolver Condition="'$(EnableAndroidTarget)' != 'true'">false</MSBuildEnableWorkloadResolver>
     <OutputType>Exe</OutputType>
     <RootNamespace>BillMate.App</RootNamespace>
     <UseMaui>true</UseMaui>

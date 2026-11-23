@@ -8,7 +8,7 @@ param(
     [Parameter(Mandatory = $true)]
     [string]$ConfigPath,
 
-    [string]$OutputRoot = ".\artifacts",
+    [string]$OutputRoot = "artifacts",
     [switch]$SkipAndroid,
     [switch]$SkipDesktop,
     [switch]$SkipInstaller,
@@ -19,39 +19,54 @@ param(
 
 $ErrorActionPreference = "Stop"
 
-if (-not (Test-Path $ConfigPath)) {
+# Automatically resolve repository root regardless of current working directory
+$repoRoot = (Resolve-Path "$PSScriptRoot\..").Path
+
+# Resolve ConfigPath
+$resolvedConfigPath = if (Test-Path $ConfigPath) {
+    (Resolve-Path $ConfigPath).Path
+} elseif (Test-Path (Join-Path $repoRoot $ConfigPath)) {
+    (Resolve-Path (Join-Path $repoRoot $ConfigPath)).Path
+} else {
     throw "White-label config not found: $ConfigPath"
 }
 
-$cfg = Get-Content $ConfigPath -Raw | ConvertFrom-Json
+$cfg = Get-Content $resolvedConfigPath -Raw | ConvertFrom-Json
 foreach ($required in @("BusinessName", "AppTitle", "InvoicePrefix", "StateCode")) {
     if ([string]::IsNullOrWhiteSpace($cfg.$required)) {
-        throw "Missing required field '$required' in $ConfigPath"
+        throw "Missing required field '$required' in $resolvedConfigPath"
     }
 }
 
 $slug = ($cfg.AppTitle -replace '[^a-zA-Z0-9]+', '_').Trim('_')
-$stageDir = Join-Path (Resolve-Path ".").Path (Join-Path $OutputRoot $slug)
+$baseOut = if ([System.IO.Path]::IsPathRooted($OutputRoot)) { $OutputRoot } else { Join-Path $repoRoot $OutputRoot }
+$stageDir = Join-Path $baseOut $slug
 $apiOut = Join-Path $stageDir "api"
 $winOut = Join-Path $stageDir "desktop"
 $apkOut = Join-Path $stageDir "android"
 
 New-Item -ItemType Directory -Force -Path $apiOut, $winOut, $apkOut | Out-Null
+Write-Host "==========================================================" -ForegroundColor Cyan
 Write-Host "==> Building white-label package for '$($cfg.BusinessName)' ($slug)" -ForegroundColor Cyan
+Write-Host "==> Repository Root: $repoRoot" -ForegroundColor DarkGray
+Write-Host "==========================================================" -ForegroundColor Cyan
 
 # 1. Publish ASP.NET Core API (Self-contained win-x64 Windows Service)
 Write-Host "==> Publishing BillMate.Api (win-x64)..." -ForegroundColor Yellow
-dotnet publish ".\src\BillMate.Api\BillMate.Api.csproj" `
+$apiProj = Join-Path $repoRoot "src\BillMate.Api\BillMate.Api.csproj"
+dotnet publish $apiProj `
     -c Release -r win-x64 --self-contained true `
     -p:PublishSingleFile=false `
     -o $apiOut
 if ($LASTEXITCODE -ne 0) { throw "BillMate.Api publish failed." }
 
-Copy-Item $ConfigPath (Join-Path $apiOut "client_config.json") -Force
+Copy-Item $resolvedConfigPath (Join-Path $apiOut "client_config.json") -Force
 
 # 2. Check MAUI workload before publishing Desktop/Android
 $workloads = dotnet workload list | Out-String
 $hasMaui = $workloads -match "maui"
+
+$appProj = Join-Path $repoRoot "src\BillMate.App\BillMate.App.csproj"
 
 if (-not $SkipDesktop) {
     if (-not $hasMaui) {
@@ -59,13 +74,13 @@ if (-not $SkipDesktop) {
     }
     else {
         Write-Host "==> Publishing BillMate.App (Windows Desktop)..." -ForegroundColor Yellow
-        dotnet publish ".\src\BillMate.App\BillMate.App.csproj" `
+        dotnet publish $appProj `
             -f net10.0-windows10.0.19041.0 -c Release `
             -p:ApplicationTitle="$($cfg.AppTitle)" `
             -p:WindowsPackageType=None `
             -o $winOut
         if ($LASTEXITCODE -ne 0) { throw "BillMate.App Windows publish failed." }
-        Copy-Item $ConfigPath (Join-Path $winOut "client_config.json") -Force
+        Copy-Item $resolvedConfigPath (Join-Path $winOut "client_config.json") -Force
     }
 }
 
@@ -76,17 +91,21 @@ if (-not $SkipAndroid) {
     else {
         Write-Host "==> Publishing BillMate.App (Android APK)..." -ForegroundColor Yellow
         $androidArgs = @(
-            "publish", ".\src\BillMate.App\BillMate.App.csproj",
+            "publish", $appProj,
             "-f", "net10.0-android", "-c", "Release",
             "-p:EnableAndroidTarget=true",
             "-p:AndroidPackageFormat=apk",
             "-p:ApplicationTitle=$($cfg.AppTitle)",
             "-o", $apkOut
         )
-        if (-not [string]::IsNullOrWhiteSpace($AndroidKeystorePath)) {
+        $resolvedKeystore = if (-not [string]::IsNullOrWhiteSpace($AndroidKeystorePath)) {
+            if ([System.IO.Path]::IsPathRooted($AndroidKeystorePath)) { $AndroidKeystorePath } else { Join-Path $repoRoot $AndroidKeystorePath }
+        } else { $null }
+
+        if ($null -ne $resolvedKeystore -and (Test-Path $resolvedKeystore)) {
             $androidArgs += @(
                 "-p:AndroidKeyStore=true",
-                "-p:AndroidSigningKeyStore=$AndroidKeystorePath",
+                "-p:AndroidSigningKeyStore=$resolvedKeystore",
                 "-p:AndroidSigningKeyAlias=$AndroidKeystoreAlias",
                 "-p:AndroidSigningStorePass=$AndroidKeystorePass",
                 "-p:AndroidSigningKeyPass=$AndroidKeystorePass"
@@ -112,13 +131,14 @@ if (-not $SkipInstaller) {
     }
     else {
         Write-Host "==> Compiling Inno Setup installer using $isccPath..." -ForegroundColor Yellow
+        $issFile = Join-Path $repoRoot "installer\BillMate.Setup\BillMate.iss"
         & $isccPath `
             "/DAppName=$($cfg.AppTitle)" `
             "/DAppSlug=$slug" `
             "/DApiStageDir=$apiOut" `
             "/DDesktopStageDir=$winOut" `
             "/DOutputDir=$stageDir" `
-            ".\installer\BillMate.Setup\BillMate.iss"
+            $issFile
         if ($LASTEXITCODE -ne 0) { throw "Inno Setup compilation failed." }
     }
 }
