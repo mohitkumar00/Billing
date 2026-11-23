@@ -150,10 +150,15 @@ jobs:
       - name: Install .NET MAUI Android Workload
         shell: pwsh
         run: |
+          Write-Host "Active dotnet SDK version:"
+          dotnet --version
           dotnet workload install maui-android `
             --skip-manifest-update `
             --source https://api.nuget.org/v3/index.json `
             --ignore-failed-sources
+          dotnet workload restore src/BillMate.App/BillMate.App.csproj `
+            -p:EnableAndroidTarget=true `
+            --configfile nuget.config
 
       - name: Accept Android SDK Licenses
         shell: pwsh
