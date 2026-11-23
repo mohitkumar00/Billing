@@ -1,0 +1,146 @@
+name: Build BillMate APK & Windows EXE
+
+on:
+  push:
+    branches: [ "main" ]
+  pull_request:
+    branches: [ "main" ]
+  workflow_dispatch:
+    inputs:
+      build_configuration:
+        description: 'Build Configuration (Release or Debug)'
+        required: true
+        default: 'Release'
+        type: choice
+        options:
+          - Release
+          - Debug
+
+jobs:
+  build:
+    name: Build Android APK and Windows Desktop Installer
+    runs-on: windows-latest
+    timeout-minutes: 45
+
+    steps:
+      - name: Checkout Repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 1
+
+      - name: Setup Java JDK 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: 'microsoft'
+          java-version: '17'
+
+      - name: Setup .NET SDK
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+          dotnet-quality: 'preview'
+
+      - name: Display Environment Info
+        shell: pwsh
+        run: |
+          dotnet --info
+          java -version
+          Write-Host "ANDROID_HOME: $env:ANDROID_HOME"
+          Get-ChildItem -Path "$env:ANDROID_HOME" -ErrorAction SilentlyContinue | Select-Object Name
+
+      - name: Install .NET MAUI Workloads
+        shell: pwsh
+        run: |
+          dotnet workload install maui-android `
+            --skip-manifest-update `
+            --source https://api.nuget.org/v3/index.json `
+            --ignore-failed-sources
+
+      - name: Restore Dependencies
+        shell: pwsh
+        run: |
+          dotnet restore BillMate.sln --configfile nuget.config
+
+      - name: Run Domain & Application Tests
+        shell: pwsh
+        run: |
+          dotnet test tests/BillMate.Domain.Tests/BillMate.Domain.Tests.csproj --configuration Release --no-restore
+          dotnet test tests/BillMate.Application.Tests/BillMate.Application.Tests.csproj --configuration Release --no-restore
+          dotnet test tests/BillMate.ClientCore.Tests/BillMate.ClientCore.Tests.csproj --configuration Release --no-restore
+
+      - name: Build Android APK
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/android | Out-Null
+          dotnet publish src/BillMate.App/BillMate.App.csproj `
+            -f net10.0-android `
+            -c Release `
+            -p:EnableAndroidTarget=true `
+            -p:AndroidPackageFormat=apk `
+            -p:AndroidKeyStore=false `
+            -p:ApplicationTitle="BillMate POS" `
+            -p:ApplicationId=com.billmate.pos `
+            -o artifacts/android
+
+      - name: Build Windows Desktop App
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/desktop | Out-Null
+          dotnet publish src/BillMate.App/BillMate.App.csproj `
+            -f net10.0-windows10.0.19041.0 `
+            -c Release `
+            -p:WindowsPackageType=None `
+            -o artifacts/desktop
+
+      - name: Build ASP.NET Core Windows Service API
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/api | Out-Null
+          dotnet publish src/BillMate.Api/BillMate.Api.csproj `
+            -c Release `
+            -r win-x64 `
+            --self-contained true `
+            -p:PublishSingleFile=false `
+            -o artifacts/api
+
+      - name: Compile Inno Setup Windows Installer (.exe)
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path artifacts/installer | Out-Null
+          $iscc = (Get-Command iscc.exe -ErrorAction SilentlyContinue)?.Source
+          if (-not $iscc) {
+            $iscc = @("C:\Program Files (x86)\Inno Setup 6\ISCC.exe", "C:\Program Files\Inno Setup 6\ISCC.exe") | Where-Object { Test-Path $_ } | Select-Object -First 1
+          }
+          if ($iscc) {
+            Write-Host "Found Inno Setup at: $iscc"
+            & $iscc `
+              "/DAppName=BillMate Billing" `
+              "/DAppSlug=BillMate_Billing" `
+              "/DApiStageDir=$((Resolve-Path artifacts/api).Path)" `
+              "/DDesktopStageDir=$((Resolve-Path artifacts/desktop).Path)" `
+              "/DOutputDir=$((Resolve-Path artifacts/installer).Path)" `
+              installer/BillMate.Setup/BillMate.iss
+          } else {
+            Write-Warning "Inno Setup compiler not found on runner. Skipping installer creation."
+          }
+
+      - name: Upload Android APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: BillMate-Android-APK
+          path: artifacts/android/*.apk
+          if-no-files-found: warn
+
+      - name: Upload Windows Setup Installer (.exe)
+        uses: actions/upload-artifact@v4
+        with:
+          name: BillMate-Windows-Setup-EXE
+          path: artifacts/installer/*.exe
+          if-no-files-found: warn
+
+      - name: Upload Portable Windows Desktop App
+        uses: actions/upload-artifact@v4
+        with:
+          name: BillMate-Windows-Desktop-Portable
+          path: artifacts/desktop/
+          if-no-files-found: warn
