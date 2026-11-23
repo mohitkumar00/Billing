@@ -83,6 +83,21 @@ public sealed class EscPosReceiptBuilder : IEscPosReceiptBuilder
             AppendText(FormatColumns("Balance Due:", $"Rs.{model.AmountDue:0.00}", cols));
 
         AppendText(sep);
+
+        if (!string.IsNullOrWhiteSpace(model.UpiVpa))
+        {
+            var qrAmount = model.AmountDue > 0m ? model.AmountDue : model.GrandTotal;
+            if (qrAmount > 0m)
+            {
+                var upiUri = $"upi://pay?pa={model.UpiVpa.Trim()}&pn={Uri.EscapeDataString(model.BusinessName.Trim())}&am={qrAmount:0.00}&cu=INR&tn={Uri.EscapeDataString("Bill " + model.InvoiceNumber)}&tr={Uri.EscapeDataString(model.InvoiceNumber)}";
+                buf.AddRange(AlignCenter);
+                AppendText("Scan & Pay via UPI (GPay/PhonePe)");
+                AppendQrCode(buf, upiUri);
+                AppendText("\n");
+                AppendText(sep);
+            }
+        }
+
         buf.AddRange(AlignCenter);
         AppendText("Thank You! Visit Again");
         AppendText("\n");
@@ -92,6 +107,26 @@ public sealed class EscPosReceiptBuilder : IEscPosReceiptBuilder
             buf.AddRange(CashDrawerKick);
 
         return buf.ToArray();
+    }
+
+    private static void AppendQrCode(List<byte> buf, string data)
+    {
+        var dataBytes = Encoding.UTF8.GetBytes(data);
+        var len = dataBytes.Length + 3;
+        var pL = (byte)(len % 256);
+        var pH = (byte)(len / 256);
+
+        // 1. Model: QR Code Model 2 (GS ( k 4 0 49 65 50 0)
+        buf.AddRange([0x1D, 0x28, 0x6B, 0x04, 0x00, 0x31, 0x41, 0x32, 0x00]);
+        // 2. Size: Module size 4 dots (GS ( k 3 0 49 67 4)
+        buf.AddRange([0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x43, 0x04]);
+        // 3. Error correction: Level M (GS ( k 3 0 49 69 49)
+        buf.AddRange([0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x45, 0x31]);
+        // 4. Store data: (GS ( k pL pH 49 80 48 <data>)
+        buf.AddRange([0x1D, 0x28, 0x6B, pL, pH, 0x31, 0x50, 0x30]);
+        buf.AddRange(dataBytes);
+        // 5. Print QR symbol: (GS ( k 3 0 49 81 48)
+        buf.AddRange([0x1D, 0x28, 0x6B, 0x03, 0x00, 0x31, 0x51, 0x30]);
     }
 
     private static string FormatColumns(string left, string right, int width)

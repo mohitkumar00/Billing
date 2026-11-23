@@ -244,9 +244,27 @@
 
                 <!-- Save & Print Action -->
                 <VerticalStackLayout Grid.Row="4" Spacing="6">
+                    <!-- Dynamic UPI QR Scan Box -->
+                    <Border IsVisible="{Binding IsUpiPaymentActive}"
+                            BackgroundColor="#09090B" Stroke="#38BDF8" StrokeShape="RoundRectangle 8"
+                            Padding="8" Margin="0,2">
+                        <VerticalStackLayout Spacing="3" HorizontalOptions="Center">
+                            <Label Text="📱 Dynamic UPI QR (GPay / PhonePe / Paytm)" FontSize="11" FontAttributes="Bold" TextColor="#38BDF8" HorizontalOptions="Center" />
+                            <Label Text="{Binding GrandTotal, StringFormat='Scan &amp; Pay: ₹{0:N2}'}" FontSize="14" FontAttributes="Bold" TextColor="#FACC15" HorizontalOptions="Center" />
+                        </VerticalStackLayout>
+                    </Border>
+
                     <Button Text="Save &amp; Print Bill (F9)" Style="{StaticResource PrimaryActionButton}"
                             HeightRequest="48" FontSize="15"
                             Command="{Binding CheckoutCommand}" />
+
+                    <!-- WhatsApp 1-Click Share Button -->
+                    <Button Text="💬 Share Bill on WhatsApp"
+                            IsVisible="{Binding HasWhatsAppShare}"
+                            BackgroundColor="#15803D" TextColor="#FFFFFF"
+                            FontAttributes="Bold" HeightRequest="40" FontSize="13"
+                            Clicked="OnShareLastBillWhatsAppClicked" />
+
                     <Button Text="Reprint Last Saved PDF" HeightRequest="34" FontSize="12"
                             BackgroundColor="#27272A" TextColor="#E2E8F0"
                             Command="{Binding ReprintLastSavedPdfCommand}" />

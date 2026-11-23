@@ -45,6 +45,21 @@ public partial class PosPage : ContentPage
         });
     }
 
+    private async void OnShareLastBillWhatsAppClicked(object? sender, EventArgs e)
+    {
+        if (!string.IsNullOrEmpty(_vm.LastWhatsAppUrl))
+        {
+            try
+            {
+                await Microsoft.Maui.ApplicationModel.Launcher.OpenAsync(new Uri(_vm.LastWhatsAppUrl));
+            }
+            catch (Exception ex)
+            {
+                await DisplayAlert("WhatsApp Launch", $"Could not open WhatsApp: {ex.Message}", "OK");
+            }
+        }
+    }
+
     private void OnProductTapped(object? sender, EventArgs e)
     {
         if (sender is VisualElement { BindingContext: ProductDto prod })

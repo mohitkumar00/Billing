@@ -14,8 +14,16 @@ namespace BillMate.ClientCore.Api;
 
 public sealed record CancelInvoiceBody(string Reason);
 
+public sealed record CustomerPaymentBody(
+    Guid? InvoiceId,
+    BillMate.Domain.Enums.PaymentMode PaymentMode,
+    decimal Amount,
+    string? ReferenceNumber = null,
+    string? Notes = null);
+
 public interface IBillMateApi
 {
+
     [Post("/api/v1/auth/login")]
     Task<AuthResponse> LoginAsync([Body] LoginCommand command, CancellationToken ct = default);
 
@@ -69,6 +77,9 @@ public interface IBillMateApi
 
     [Post("/api/v1/customers")]
     Task<CustomerDto> CreateCustomerAsync([Body] CreateCustomerCommand command, CancellationToken ct = default);
+
+    [Post("/api/v1/customers/{id}/payments")]
+    Task<CustomerDto> RecordCustomerPaymentAsync(Guid id, [Body] CustomerPaymentBody body, CancellationToken ct = default);
 
     [Get("/api/v1/reports/sales-summary")]
     Task<SalesSummaryDto> GetSalesSummaryAsync([Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset from, [Query(Format = "yyyy-MM-ddTHH:mm:ssZ")] DateTimeOffset to, CancellationToken ct = default);

@@ -1,0 +1,152 @@
+<?xml version="1.0" encoding="utf-8" ?>
+<ContentPage xmlns="http://schemas.microsoft.com/dotnet/2021/maui"
+             xmlns:x="http://schemas.microsoft.com/winfx/2009/xaml"
+             xmlns:vm="clr-namespace:BillMate.ClientCore.ViewModels;assembly=BillMate.ClientCore"
+             xmlns:controls="clr-namespace:BillMate.App.Controls"
+             x:Class="BillMate.App.Views.KhataPage"
+             x:DataType="vm:KhataViewModel"
+             BackgroundColor="{AppThemeBinding Light={StaticResource SurfaceBaseLight}, Dark={StaticResource SurfaceBaseDark}}"
+             Shell.NavBarIsVisible="False"
+             Title="Khata &amp; Udhar Ledger">
+
+    <Grid RowDefinitions="Auto,*">
+        <!-- Universal Navigation Bar -->
+        <controls:AppNavBar Grid.Row="0" ActiveTab="khata" />
+
+        <Grid Grid.Row="1" Padding="16" ColumnDefinitions="3*,2*" ColumnSpacing="16">
+
+            <!-- LEFT: Customer List & Summary Bento -->
+            <Grid Grid.Column="0" RowDefinitions="Auto,Auto,*" RowSpacing="12">
+
+                <!-- 1. KPI Summary Cards -->
+                <Grid Grid.Row="0" ColumnDefinitions="*,*" ColumnSpacing="12">
+                    <Border Grid.Column="0" Style="{StaticResource BentoCardBorder}" BackgroundColor="#18181B" Padding="14">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="TOTAL OUTSTANDING (UDHAR)" FontSize="11" FontAttributes="Bold" TextColor="#EF4444" />
+                            <Label Text="{Binding TotalOutstanding, StringFormat='₹{0:N2}'}" FontSize="24" FontAttributes="Bold" TextColor="#F87171" Style="{StaticResource TabularMoneyStyle}" />
+                            <Label Text="Total credit awaiting collection" FontSize="11" TextColor="#A1A1AA" />
+                        </VerticalStackLayout>
+                    </Border>
+
+                    <Border Grid.Column="1" Style="{StaticResource BentoCardBorder}" BackgroundColor="#18181B" Padding="14">
+                        <VerticalStackLayout Spacing="4">
+                            <Label Text="CUSTOMERS WITH DUE" FontSize="11" FontAttributes="Bold" TextColor="#F59E0B" />
+                            <Label Text="{Binding CustomersWithDueCount}" FontSize="24" FontAttributes="Bold" TextColor="#FBBF24" Style="{StaticResource TabularMoneyStyle}" />
+                            <Label Text="Active credit accounts" FontSize="11" TextColor="#A1A1AA" />
+                        </VerticalStackLayout>
+                    </Border>
+                </Grid>
+
+                <!-- 2. Search & Filter Bar -->
+                <Border Grid.Row="1" Style="{StaticResource BentoCardBorder}" BackgroundColor="#18181B" Padding="10">
+                    <Grid ColumnDefinitions="*,Auto" ColumnSpacing="10">
+                        <Entry Placeholder="Search by customer name or phone number..."
+                               Text="{Binding SearchQuery}"
+                               TextColor="#FFFFFF"
+                               PlaceholderColor="#71717A"
+                               HeightRequest="40" />
+                        <Button Grid.Column="1" Text="🔄 Refresh" Style="{StaticResource SecondaryActionButton}" Command="{Binding LoadCustomersCommand}" />
+                    </Grid>
+                </Border>
+
+                <!-- 3. Customers CollectionView -->
+                <Border Grid.Row="2" Style="{StaticResource BentoCardBorder}" BackgroundColor="#18181B" Padding="10">
+                    <CollectionView ItemsSource="{Binding FilteredCustomers}" SelectionMode="Single">
+                        <CollectionView.ItemTemplate>
+                            <DataTemplate x:DataType="vm:CustomerKhataItem">
+                                <Border StrokeThickness="1" Stroke="#27272A" BackgroundColor="#27272A" StrokeShape="RoundRectangle 8" Padding="12" Margin="0,4">
+                                    <Grid ColumnDefinitions="*,Auto,Auto" ColumnSpacing="12" VerticalOptions="Center">
+                                        <!-- Customer Details -->
+                                        <VerticalStackLayout Grid.Column="0" Spacing="2" VerticalOptions="Center">
+                                            <Label Text="{Binding Name}" FontSize="15" FontAttributes="Bold" TextColor="#FFFFFF" />
+                                            <HorizontalStackLayout Spacing="8">
+                                                <Label Text="{Binding Phone, StringFormat='📞 {0}'}" FontSize="12" TextColor="#38BDF8" />
+                                                <Label Text="{Binding CreditLimit, StringFormat='Limit: ₹{0:N0}'}" FontSize="12" TextColor="#71717A" />
+                                            </HorizontalStackLayout>
+                                        </VerticalStackLayout>
+
+                                        <!-- Balance Chip -->
+                                        <Border Grid.Column="1"
+                                                BackgroundColor="{Binding HasBalanceDue, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#450A0A|#064E3B'}"
+                                                Stroke="{Binding HasBalanceDue, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#DC2626|#059669'}"
+                                                StrokeShape="RoundRectangle 6"
+                                                Padding="8,4"
+                                                VerticalOptions="Center">
+                                            <Label Text="{Binding OutstandingBalance, StringFormat='₹{0:N2}'}"
+                                                   TextColor="{Binding HasBalanceDue, Converter={StaticResource BoolToColorConverter}, ConverterParameter='#FCA5A5|#6EE7B7'}"
+                                                   FontAttributes="Bold" FontSize="13" />
+                                        </Border>
+
+                                        <!-- Action Buttons -->
+                                        <HorizontalStackLayout Grid.Column="2" Spacing="6" VerticalOptions="Center">
+                                            <!-- WhatsApp Reminder -->
+                                            <Button Text="💬 WhatsApp"
+                                                    BackgroundColor="#15803D"
+                                                    TextColor="#FFFFFF"
+                                                    FontSize="11" FontAttributes="Bold"
+                                                    Padding="10,6" HeightRequest="34" CornerRadius="6"
+                                                    Clicked="OnWhatsAppReminderClicked" />
+
+                                            <!-- Settle Payment -->
+                                            <Button Text="💰 Receive"
+                                                    BackgroundColor="#2563EB"
+                                                    TextColor="#FFFFFF"
+                                                    FontSize="11" FontAttributes="Bold"
+                                                    Padding="10,6" HeightRequest="34" CornerRadius="6"
+                                                    Command="{Binding Source={RelativeSource AncestorType={x:Type vm:KhataViewModel}}, Path=OpenPaymentModalCommand}"
+                                                    CommandParameter="{Binding .}" />
+                                        </HorizontalStackLayout>
+                                    </Grid>
+                                </Border>
+                            </DataTemplate>
+                        </CollectionView.ItemTemplate>
+                    </CollectionView>
+                </Border>
+            </Grid>
+
+            <!-- RIGHT: Payment Settlement Panel -->
+            <Border Grid.Column="1" Style="{StaticResource BentoCardBorder}" BackgroundColor="#18181B" Padding="16">
+                <VerticalStackLayout Spacing="14">
+                    <Label Text="💳 Receive Udhar Payment" FontSize="18" FontAttributes="Bold" TextColor="#FFFFFF" />
+
+                    <!-- Selected Customer State -->
+                    <VerticalStackLayout IsVisible="{Binding IsPaymentModalOpen}" Spacing="12">
+                        <Border BackgroundColor="#27272A" Stroke="#3F3F46" StrokeShape="RoundRectangle 8" Padding="12">
+                            <VerticalStackLayout Spacing="4">
+                                <Label Text="{Binding SelectedCustomer.Name}" FontSize="16" FontAttributes="Bold" TextColor="#38BDF8" />
+                                <Label Text="{Binding SelectedCustomer.Phone, StringFormat='Phone: {0}'}" FontSize="12" TextColor="#94A3B8" />
+                                <Label Text="{Binding SelectedCustomer.OutstandingBalance, StringFormat='Current Outstanding: ₹{0:N2}'}" FontSize="13" FontAttributes="Bold" TextColor="#EF4444" />
+                            </VerticalStackLayout>
+                        </Border>
+
+                        <Label Text="Payment Amount (₹):" FontSize="13" FontAttributes="Bold" TextColor="#E2E8F0" />
+                        <Entry Text="{Binding SettlementAmount}" Keyboard="Numeric" HeightRequest="44" FontSize="16" TextColor="#FFFFFF" BackgroundColor="#27272A" />
+
+                        <Label Text="Notes / Reference:" FontSize="13" FontAttributes="Bold" TextColor="#E2E8F0" />
+                        <Entry Text="{Binding SettlementNotes}" Placeholder="e.g. Cash paid at counter" HeightRequest="44" TextColor="#FFFFFF" BackgroundColor="#27272A" />
+
+                        <Grid ColumnDefinitions="*,*" ColumnSpacing="10" Margin="0,10,0,0">
+                            <Button Text="Cancel" Style="{StaticResource SecondaryActionButton}" Command="{Binding ClosePaymentModalCommand}" />
+                            <Button Text="Confirm Payment" BackgroundColor="#10B981" TextColor="#FFFFFF" FontAttributes="Bold" Command="{Binding SubmitPaymentCommand}" />
+                        </Grid>
+                    </VerticalStackLayout>
+
+                    <!-- Empty State when no customer is selected -->
+                    <VerticalStackLayout IsVisible="{Binding IsPaymentModalOpen, Converter={StaticResource InvertedBoolConverter}}"
+                                         Spacing="12" VerticalOptions="CenterAndExpand" HorizontalOptions="Center">
+                        <Label Text="📖" FontSize="48" HorizontalOptions="Center" />
+                        <Label Text="Select a Customer" FontSize="16" FontAttributes="Bold" TextColor="#FFFFFF" HorizontalOptions="Center" />
+                        <Label Text="Click 'Receive' next to any customer with an outstanding balance to log payments and clear their Udhar ledger."
+                               FontSize="12" TextColor="#71717A" HorizontalTextAlignment="Center" MaximumWidthRequest="280" />
+                    </VerticalStackLayout>
+
+                    <!-- Status Notification Toast -->
+                    <Label Text="{Binding StatusMessage}" IsVisible="{Binding StatusMessage, Converter={StaticResource StringNotEmptyConverter}}"
+                           TextColor="#38BDF8" FontSize="12" HorizontalOptions="Center" />
+                </VerticalStackLayout>
+            </Border>
+
+        </Grid>
+    </Grid>
+
+</ContentPage>

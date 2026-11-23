@@ -43,9 +43,20 @@ public partial class AppNavBar : ContentView
         SetButtonState(BtnDashboard, active == "dashboard");
         SetButtonState(BtnPos, active == "pos" || active == "billing");
         SetButtonState(BtnInvoices, active == "invoices" || active == "invoice");
+        SetButtonState(BtnKhata, active == "khata");
         SetButtonState(BtnInventory, active == "inventory" || active == "stock");
         SetButtonState(BtnReports, active == "reports" || active == "tax");
         SetButtonState(BtnRestore, active == "restore" || active == "backup");
+
+        var isHi = BillMate.ClientCore.Services.LocalizationService.Instance.IsHindi;
+        if (BtnDashboard != null) BtnDashboard.Text = isHi ? "📊 डैशबोर्ड" : "📊 Dashboard";
+        if (BtnPos != null) BtnPos.Text = isHi ? "🛒 नया बिल" : "🛒 Billing (POS)";
+        if (BtnInvoices != null) BtnInvoices.Text = isHi ? "🧾 रसीदें" : "🧾 Invoices";
+        if (BtnKhata != null) BtnKhata.Text = isHi ? "📖 खाता बही" : "📖 Khata";
+        if (BtnInventory != null) BtnInventory.Text = isHi ? "📦 स्टॉक" : "📦 Inventory";
+        if (BtnReports != null) BtnReports.Text = isHi ? "📈 रिपोर्ट" : "📈 Reports";
+        if (BtnRestore != null) BtnRestore.Text = isHi ? "💾 बैकअप" : "💾 Backup";
+        if (BtnLanguage != null) BtnLanguage.Text = isHi ? "🌐 हिंदी" : "🌐 English";
 
         if (BtnCashier != null)
         {
@@ -85,10 +96,17 @@ public partial class AppNavBar : ContentView
     private void OnDashboardClicked(object? sender, EventArgs e) => NavigateToRoute("dashboard");
     private void OnPosClicked(object? sender, EventArgs e) => NavigateToRoute("pos");
     private void OnInvoicesClicked(object? sender, EventArgs e) => NavigateToRoute("invoices");
+    private void OnKhataClicked(object? sender, EventArgs e) => NavigateToRoute("khata");
     private void OnInventoryClicked(object? sender, EventArgs e) => NavigateToRoute("inventory");
     private void OnReportsClicked(object? sender, EventArgs e) => NavigateToRoute("reports");
     private void OnRestoreClicked(object? sender, EventArgs e) => NavigateToRoute("restore");
     private void OnCashierClicked(object? sender, EventArgs e) => NavigateToRoute("pinlogin");
+
+    private void OnLanguageToggleClicked(object? sender, EventArgs e)
+    {
+        BillMate.ClientCore.Services.LocalizationService.Instance.ToggleLanguage();
+        UpdateTabVisuals();
+    }
 
     private static void NavigateToRoute(string route)
     {

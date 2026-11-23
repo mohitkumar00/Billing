@@ -57,6 +57,16 @@
                         HeightRequest="38"
                         Clicked="OnInvoicesClicked" />
 
+                <!-- Khata (Credit Ledger) Tab -->
+                <Button x:Name="BtnKhata"
+                        Text="📖 Khata"
+                        FontSize="13" FontAttributes="Bold"
+                        CornerRadius="8"
+                        Padding="14,8"
+                        MinimumHeightRequest="38"
+                        HeightRequest="38"
+                        Clicked="OnKhataClicked" />
+
                 <!-- Inventory & Stock Tab -->
                 <Button x:Name="BtnInventory"
                         Text="📦 Inventory &amp; Stock"
@@ -90,6 +100,20 @@
 
             <!-- 3. Right: Active Cashier & Counter Status -->
             <HorizontalStackLayout Grid.Column="2" Spacing="10" VerticalOptions="Center">
+                <!-- Language Toggle Pill -->
+                <Button x:Name="BtnLanguage"
+                        Text="🌐 EN | हिंदी"
+                        FontSize="11" FontAttributes="Bold"
+                        BackgroundColor="#27272A"
+                        TextColor="#FACC15"
+                        BorderColor="#EAB308"
+                        BorderWidth="1"
+                        CornerRadius="8"
+                        Padding="10,6"
+                        HeightRequest="36"
+                        Clicked="OnLanguageToggleClicked"
+                        ToolTipProperties.Text="Toggle UI language between English and Hindi" />
+
                 <!-- Cashier Quick Switch Pill -->
                 <Button x:Name="BtnCashier"
                         Text="🔑 Cashier Switch (PIN: 1234)"

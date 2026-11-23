@@ -22,6 +22,10 @@
         <ShellContent ContentTemplate="{DataTemplate views:InvoicesPage}" />
     </FlyoutItem>
 
+    <FlyoutItem Route="khata">
+        <ShellContent ContentTemplate="{DataTemplate views:KhataPage}" />
+    </FlyoutItem>
+
     <FlyoutItem Route="inventory">
         <ShellContent ContentTemplate="{DataTemplate views:InventoryPage}" />
     </FlyoutItem>

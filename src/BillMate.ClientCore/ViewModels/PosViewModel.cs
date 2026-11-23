@@ -158,6 +158,18 @@ public sealed partial class PosViewModel : StatefulViewModelBase
     [ObservableProperty]
     private string? _lastSavedPdfPath;
 
+    [ObservableProperty]
+    private string? _lastWhatsAppUrl;
+
+    [ObservableProperty]
+    private bool _hasWhatsAppShare;
+
+    [ObservableProperty]
+    private string _upiQrUri = string.Empty;
+
+    [ObservableProperty]
+    private bool _isUpiPaymentActive;
+
     public decimal ChangeToReturn => Math.Max(0m, CashTendered - GrandTotal);
     public decimal TotalSplitPaymentAmount => IsSplitPaymentEnabled
         ? SplitCashAmount + SplitUpiAmount + SplitCardAmount
@@ -581,6 +593,27 @@ public sealed partial class PosViewModel : StatefulViewModelBase
                 ToastMessage = $"Saved offline as {LastReceiptNumber}. Will sync on LAN reconnect.";
             }
 
+            var phoneToShare = CustomerPhone;
+            var totalToShare = GrandTotal;
+            var itemCountToShare = CartLines.Count;
+            if (!string.IsNullOrWhiteSpace(phoneToShare))
+            {
+                LastWhatsAppUrl = WhatsAppShareHelper.BuildInvoiceShareUrl(
+                    phoneToShare,
+                    _session.BusinessName,
+                    LastReceiptNumber ?? "BILL",
+                    totalToShare,
+                    0m,
+                    itemCountToShare,
+                    _session.UpiVpa);
+                HasWhatsAppShare = !string.IsNullOrEmpty(LastWhatsAppUrl);
+            }
+            else
+            {
+                LastWhatsAppUrl = null;
+                HasWhatsAppShare = false;
+            }
+
             CartLines.Clear();
             CashTendered = 0m;
             BillDiscountAmount = 0m;
@@ -798,5 +831,22 @@ public sealed partial class PosViewModel : StatefulViewModelBase
         }
 
         OnPropertyChanged(nameof(ChangeToReturn));
+        UpdateUpiQrUri();
+    }
+
+    public void UpdateUpiQrUri()
+    {
+        var vpa = _session.UpiVpa ?? "merchant@upi";
+        var amount = GrandTotal;
+        if (amount > 0m)
+        {
+            UpiQrUri = UpiPaymentHelper.GenerateUpiUri(vpa, _session.BusinessName, amount, LastReceiptNumber ?? "NEXT");
+            IsUpiPaymentActive = SelectedPaymentMode == PaymentMode.Upi || SplitUpiAmount > 0m;
+        }
+        else
+        {
+            UpiQrUri = string.Empty;
+            IsUpiPaymentActive = false;
+        }
     }
 }

@@ -20,6 +20,8 @@ public sealed class ClientSessionState
     public AuthResponse? CurrentAuth { get; set; }
     public string SellerStateCode { get; set; } = "27";
     public bool IsCompositionScheme { get; set; }
+    public string BusinessName { get; set; } = "BillMate Retail";
+    public string? UpiVpa { get; set; }
 }
 
 public sealed class BearerAuthHandler : DelegatingHandler
@@ -194,6 +196,7 @@ public static class ClientCoreDependencyInjection
         services.AddTransient<PinLoginViewModel>();
         services.AddTransient<InventoryViewModel>();
         services.AddTransient<ReportsViewModel>();
+        services.AddTransient<KhataViewModel>();
 
         services.AddRefitClient<IBillMateApi>()
             .ConfigureHttpClient((sp, client) =>
