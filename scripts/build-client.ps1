@@ -78,6 +78,7 @@ if (-not $SkipAndroid) {
         $androidArgs = @(
             "publish", ".\src\BillMate.App\BillMate.App.csproj",
             "-f", "net10.0-android", "-c", "Release",
+            "-p:EnableAndroidTarget=true",
             "-p:AndroidPackageFormat=apk",
             "-p:ApplicationTitle=$($cfg.AppTitle)",
             "-o", $apkOut
@@ -90,6 +91,9 @@ if (-not $SkipAndroid) {
                 "-p:AndroidSigningStorePass=$AndroidKeystorePass",
                 "-p:AndroidSigningKeyPass=$AndroidKeystorePass"
             )
+        }
+        else {
+            $androidArgs += "-p:AndroidKeyStore=false"
         }
         & dotnet @androidArgs
         if ($LASTEXITCODE -ne 0) { throw "BillMate.App Android publish failed." }
