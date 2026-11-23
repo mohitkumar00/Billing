@@ -114,7 +114,6 @@
                                             Command="{Binding Source={x:Reference PosRoot}, Path=BindingContext.SelectCustomerSuggestionCommand}"
                                             CommandParameter="{Binding .}"
                                             HorizontalOptions="Fill"
-                                            HorizontalTextAlignment="Start"
                                             BackgroundColor="#1E293B"
                                             TextColor="#E2E8F0"
                                             Margin="0,2" />

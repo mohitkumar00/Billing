@@ -83,6 +83,13 @@ jobs:
             -p:PublishSingleFile=false `
             -o artifacts/api
 
+      - name: Ensure Inno Setup Compiler
+        shell: pwsh
+        run: |
+          if (-not (Get-Command iscc.exe -ErrorAction SilentlyContinue) -and -not (Test-Path "C:\Program Files (x86)\Inno Setup 6\ISCC.exe")) {
+            choco install innosetup -y --no-progress
+          }
+
       - name: Compile Inno Setup Windows Installer (.exe)
         shell: pwsh
         run: |
@@ -136,8 +143,18 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
-        with:
-          packages: 'platforms;android-34 platforms;android-35 build-tools;35.0.0 platform-tools'
+
+      - name: Accept Android SDK Licenses
+        shell: pwsh
+        run: |
+          $sdkmanager = (Get-Command sdkmanager.bat -ErrorAction SilentlyContinue)?.Source
+          if (-not $sdkmanager -and (Test-Path "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat")) {
+            $sdkmanager = "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat"
+          }
+          if ($sdkmanager) {
+            Write-Host "Accepting licenses using: $sdkmanager"
+            echo "y" | & $sdkmanager --licenses
+          }
 
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
