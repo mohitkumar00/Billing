@@ -141,21 +141,6 @@ jobs:
           distribution: 'microsoft'
           java-version: '17'
 
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v3
-
-      - name: Accept Android SDK Licenses
-        shell: pwsh
-        run: |
-          $sdkmanager = (Get-Command sdkmanager.bat -ErrorAction SilentlyContinue)?.Source
-          if (-not $sdkmanager -and (Test-Path "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat")) {
-            $sdkmanager = "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat"
-          }
-          if ($sdkmanager) {
-            Write-Host "Accepting licenses using: $sdkmanager"
-            echo "y" | & $sdkmanager --licenses
-          }
-
       - name: Setup .NET SDK
         uses: actions/setup-dotnet@v4
         with:
@@ -169,6 +154,17 @@ jobs:
             --skip-manifest-update `
             --source https://api.nuget.org/v3/index.json `
             --ignore-failed-sources
+
+      - name: Accept Android SDK Licenses
+        shell: pwsh
+        run: |
+          $sdkmanager = "$env:ANDROID_HOME\cmdline-tools\latest\bin\sdkmanager.bat"
+          if (Test-Path $sdkmanager) {
+            Write-Host "Accepting licenses using: $sdkmanager"
+            echo "y" | & $sdkmanager --licenses
+          } else {
+            Write-Host "ANDROID_HOME: $env:ANDROID_HOME"
+          }
 
       - name: Build Android APK
         shell: pwsh
