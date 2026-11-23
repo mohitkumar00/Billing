@@ -166,13 +166,26 @@ jobs:
             Write-Host "ANDROID_HOME: $env:ANDROID_HOME"
           }
 
+      - name: Create CI Android Signing Keystore
+        shell: pwsh
+        run: |
+          $keystore = "$env:RUNNER_TEMP\billmate-ci.keystore"
+          keytool -genkeypair -v -keystore $keystore `
+            -alias billmate `
+            -keyalg RSA -keysize 2048 -validity 10000 `
+            -storepass "BillMatePass123" -keypass "BillMatePass123" `
+            -dname "CN=BillMate, OU=Retail, O=BillMate, L=Bengaluru, ST=Karnataka, C=IN"
+          Write-Host "Generated CI signing keystore at: $keystore"
+
       - name: Build Android APK
         shell: pwsh
         run: |
           New-Item -ItemType Directory -Force -Path artifacts/android | Out-Null
           $androidSdk = if ($env:ANDROID_HOME) { $env:ANDROID_HOME } else { "C:\Android\android-sdk" }
+          $keystore = "$env:RUNNER_TEMP\billmate-ci.keystore"
           Write-Host "Using Android SDK at: $androidSdk"
           Write-Host "Using Java SDK at: $env:JAVA_HOME"
+          Write-Host "Using Keystore at: $keystore"
 
           dotnet restore src/BillMate.App/BillMate.App.csproj `
             -p:EnableAndroidTarget=true `
@@ -185,7 +198,11 @@ jobs:
             -p:JavaSdkDirectory="$env:JAVA_HOME" `
             -p:AcceptAndroidSDKLicenses=true `
             -p:AndroidPackageFormat=apk `
-            -p:AndroidKeyStore=false `
+            -p:AndroidKeyStore=true `
+            -p:AndroidSigningKeyStore="$keystore" `
+            -p:AndroidSigningKeyAlias="billmate" `
+            -p:AndroidSigningStorePass="BillMatePass123" `
+            -p:AndroidSigningKeyPass="BillMatePass123" `
             -p:ApplicationTitle="BillMate POS" `
             -p:ApplicationId=com.billmate.pos `
             -o artifacts/android
