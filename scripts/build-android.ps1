@@ -70,14 +70,11 @@ $projectPath = Join-Path $repoRoot "src\BillMate.App\BillMate.App.csproj"
 $framework = "net10.0-android"
 
 $buildArgs = @(
-    "publish", "`"$projectPath`"",
-    "-f", $framework,
+    "publish", $projectPath,
     "-c", $Configuration,
     "-p:EnableAndroidTarget=true",
     "-p:AndroidPackageFormat=$PackageFormat",
-    "-p:ApplicationTitle=`"$AppTitle`"",
-    "-p:ApplicationId=$ApplicationId",
-    "-o", "`"$absOutput`""
+    "-o", $absOutput
 )
 
 $resolvedKeystore = if (-not [string]::IsNullOrWhiteSpace($KeystorePath)) {
@@ -88,7 +85,7 @@ if ($null -ne $resolvedKeystore -and (Test-Path $resolvedKeystore)) {
     Write-Host "==> Signing with Keystore: $resolvedKeystore" -ForegroundColor Cyan
     $buildArgs += @(
         "-p:AndroidKeyStore=true",
-        "-p:AndroidSigningKeyStore=`"$resolvedKeystore`"",
+        "-p:AndroidSigningKeyStore=$resolvedKeystore",
         "-p:AndroidSigningKeyAlias=$KeystoreAlias",
         "-p:AndroidSigningStorePass=$KeystorePass",
         "-p:AndroidSigningKeyPass=$KeystorePass"

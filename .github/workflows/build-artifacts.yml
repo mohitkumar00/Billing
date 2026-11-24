@@ -196,21 +196,22 @@ jobs:
             -p:EnableAndroidTarget=true `
             --configfile nuget.config
 
-          dotnet publish src/BillMate.App/BillMate.App.csproj `
-            -c Release `
-            -p:EnableAndroidTarget=true `
-            -p:AndroidSdkDirectory="$androidSdk" `
-            -p:JavaSdkDirectory="$env:JAVA_HOME" `
-            -p:AcceptAndroidSDKLicenses=true `
-            -p:AndroidPackageFormat=apk `
-            -p:AndroidKeyStore=true `
-            -p:AndroidSigningKeyStore="$keystore" `
-            -p:AndroidSigningKeyAlias="billmate" `
-            -p:AndroidSigningStorePass="BillMatePass123" `
-            -p:AndroidSigningKeyPass="BillMatePass123" `
-            -p:ApplicationTitle="BillMate POS" `
-            -p:ApplicationId=com.billmate.pos `
-            -o artifacts/android
+          $buildArgs = @(
+            "publish", "src/BillMate.App/BillMate.App.csproj",
+            "-c", "Release",
+            "-p:EnableAndroidTarget=true",
+            "-p:AndroidSdkDirectory=$androidSdk",
+            "-p:JavaSdkDirectory=$env:JAVA_HOME",
+            "-p:AcceptAndroidSDKLicenses=true",
+            "-p:AndroidPackageFormat=apk",
+            "-p:AndroidKeyStore=true",
+            "-p:AndroidSigningKeyStore=$keystore",
+            "-p:AndroidSigningKeyAlias=billmate",
+            "-p:AndroidSigningStorePass=BillMatePass123",
+            "-p:AndroidSigningKeyPass=BillMatePass123",
+            "-o", "artifacts/android"
+          )
+          & dotnet @buildArgs
 
       - name: Upload Android APK
         uses: actions/upload-artifact@v4
