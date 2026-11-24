@@ -200,6 +200,8 @@ jobs:
             "publish", "src/BillMate.App/BillMate.App.csproj",
             "-c", "Release",
             "-p:EnableAndroidTarget=true",
+            "-p:PublishTrimmed=false",
+            "-p:RunAOTCompilation=false",
             "-p:AndroidSdkDirectory=$androidSdk",
             "-p:JavaSdkDirectory=$env:JAVA_HOME",
             "-p:AcceptAndroidSDKLicenses=true",

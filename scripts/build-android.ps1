@@ -73,6 +73,8 @@ $buildArgs = @(
     "publish", $projectPath,
     "-c", $Configuration,
     "-p:EnableAndroidTarget=true",
+    "-p:PublishTrimmed=false",
+    "-p:RunAOTCompilation=false",
     "-p:AndroidPackageFormat=$PackageFormat",
     "-o", $absOutput
 )

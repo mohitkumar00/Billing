@@ -21,11 +21,31 @@
     <TargetPlatformMinVersion Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">10.0.17763.0</TargetPlatformMinVersion>
   </PropertyGroup>
 
+  <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'android'">
+    <PublishTrimmed>false</PublishTrimmed>
+    <RunAOTCompilation>false</RunAOTCompilation>
+    <AndroidLinkMode>None</AndroidLinkMode>
+  </PropertyGroup>
+
   <PropertyGroup Condition="$([MSBuild]::GetTargetPlatformIdentifier('$(TargetFramework)')) == 'windows'">
     <WindowsPackageType>None</WindowsPackageType>
     <WindowsAppSDKSelfContained>false</WindowsAppSDKSelfContained>
     <VsInstallRoot Condition="'$(VsInstallRoot)' != '' and !Exists('$(VsInstallRoot)VC\\Tools\\MSVC')"></VsInstallRoot>
   </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <TrimmerRootAssembly>
+      <RootMode>library</RootMode>
+    </TrimmerRootAssembly>
+  </ItemDefinitionGroup>
+
+  <Target Name="_FixTrimmerRootAssemblyRootMode" BeforeTargets="_FixRootAssembly;PrepareForILLink">
+    <ItemGroup>
+      <TrimmerRootAssembly Update="@(TrimmerRootAssembly)">
+        <RootMode Condition="'%(TrimmerRootAssembly.RootMode)' == ''">library</RootMode>
+      </TrimmerRootAssembly>
+    </ItemGroup>
+  </Target>
 
   <ItemGroup>
     <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.0" />

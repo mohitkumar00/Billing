@@ -5,4 +5,10 @@
     <ImplicitUsings>enable</ImplicitUsings>
     <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
   </PropertyGroup>
+
+  <ItemDefinitionGroup>
+    <TrimmerRootAssembly>
+      <RootMode>library</RootMode>
+    </TrimmerRootAssembly>
+  </ItemDefinitionGroup>
 </Project>
