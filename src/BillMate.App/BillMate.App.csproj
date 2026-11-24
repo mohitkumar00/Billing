@@ -39,6 +39,12 @@
     </TrimmerRootAssembly>
   </ItemDefinitionGroup>
 
+  <ItemGroup>
+    <TrimmerRootAssembly Update="Refit.Reflection">
+      <RootMode>library</RootMode>
+    </TrimmerRootAssembly>
+  </ItemGroup>
+
   <Target Name="_FixTrimmerRootAssemblyRootMode" BeforeTargets="_FixRootAssembly;PrepareForILLink">
     <ItemGroup>
       <TrimmerRootAssembly Update="@(TrimmerRootAssembly)">
@@ -51,6 +57,7 @@
     <PackageReference Include="Microsoft.Maui.Controls" Version="10.0.0" />
     <PackageReference Include="Microsoft.Maui.Essentials" Version="10.0.0" />
     <PackageReference Include="ZXing.Net.Maui.Controls" Version="0.4.0" />
+    <PackageReference Include="Refit.Reflection" Version="16.4.0" />
   </ItemGroup>
 
   <ItemGroup>
