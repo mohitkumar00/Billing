@@ -24,7 +24,15 @@ public sealed partial class CartLineViewModel : ObservableObject
     private decimal _quantity;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(HasDiscount))]
+    [NotifyPropertyChangedFor(nameof(DiscountBadgeText))]
     private decimal _discountAmount;
+
+    [ObservableProperty]
+    private decimal _discountPercent;
+
+    public bool HasDiscount => DiscountAmount > 0;
+    public string DiscountBadgeText => DiscountAmount > 0 ? $"-₹{DiscountAmount:0.##}" : "🏷️ Disc";
 
     [ObservableProperty]
     private decimal _taxableAmount;
@@ -147,7 +155,14 @@ public sealed partial class PosViewModel : StatefulViewModelBase
     private decimal _splitCardAmount;
 
     [ObservableProperty]
+    [NotifyPropertyChangedFor(nameof(TotalSavings))]
+    [NotifyPropertyChangedFor(nameof(HasAnyDiscounts))]
     private decimal _billDiscountAmount;
+
+    partial void OnBillDiscountAmountChanged(decimal value)
+    {
+        RecalculateCart();
+    }
 
     [ObservableProperty]
     private bool _isHeldBillsDrawerOpen;
@@ -175,6 +190,9 @@ public sealed partial class PosViewModel : StatefulViewModelBase
         ? SplitCashAmount + SplitUpiAmount + SplitCardAmount
         : SplitPayments.Sum(x => x.Amount);
     public decimal RemainingSplitAmount => Math.Max(0m, GrandTotal - TotalSplitPaymentAmount);
+    public decimal TotalItemDiscounts => CartLines.Sum(l => l.DiscountAmount);
+    public decimal TotalSavings => TotalItemDiscounts + BillDiscountAmount;
+    public bool HasAnyDiscounts => TotalSavings > 0;
 
     public PosViewModel(IBillMateApi api, OfflineLocalStore localStore, ClientSessionState session)
     {
@@ -508,6 +526,53 @@ public sealed partial class PosViewModel : StatefulViewModelBase
         RecalculateCart();
     }
 
+    public void SetLineDiscount(CartLineViewModel line, decimal discountAmount)
+    {
+        if (line is null) return;
+        line.DiscountAmount = Math.Max(0m, discountAmount);
+        RecalculateCart();
+    }
+
+    [RelayCommand]
+    public void ApplyBillDiscountPercent(object? percentObj)
+    {
+        var percent = percentObj switch
+        {
+            decimal d => d,
+            double d => (decimal)d,
+            int i => i,
+            string s when decimal.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out var v) => v,
+            string s when decimal.TryParse(s, out var v) => v,
+            _ => 0m
+        };
+
+        if (percent <= 0m)
+        {
+            BillDiscountAmount = 0m;
+        }
+        else
+        {
+            var subTotal = CartLines.Sum(l => l.LineTotal);
+            BillDiscountAmount = Math.Round(subTotal * (percent / 100m), 2);
+        }
+    }
+
+    [RelayCommand]
+    public void SetBillDiscountAmount(object? amountObj)
+    {
+        var amount = amountObj switch
+        {
+            decimal d => d,
+            double d => (decimal)d,
+            int i => i,
+            string s when decimal.TryParse(s, NumberStyles.Number, CultureInfo.InvariantCulture, out var v) => v,
+            string s when decimal.TryParse(s, out var v) => v,
+            _ => 0m
+        };
+
+        BillDiscountAmount = Math.Max(0m, amount);
+    }
+
     [RelayCommand]
     public void HoldCurrentBill(string? label = null)
     {
@@ -831,6 +896,9 @@ public sealed partial class PosViewModel : StatefulViewModelBase
         }
 
         OnPropertyChanged(nameof(ChangeToReturn));
+        OnPropertyChanged(nameof(TotalItemDiscounts));
+        OnPropertyChanged(nameof(TotalSavings));
+        OnPropertyChanged(nameof(HasAnyDiscounts));
         UpdateUpiQrUri();
     }
 

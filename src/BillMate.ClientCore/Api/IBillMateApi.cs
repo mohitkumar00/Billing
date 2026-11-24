@@ -48,6 +48,9 @@ public interface IBillMateApi
     [Post("/api/v1/products/{id}/stock-adjust")]
     Task<ProductDto> AdjustStockAsync(Guid id, [Body] StockAdjustBody body, CancellationToken ct = default);
 
+    [Post("/api/v1/products/bulk-import")]
+    Task<BulkImportResultDto> BulkImportProductsAsync([Body] BulkImportProductsCommand command, CancellationToken ct = default);
+
     [Post("/api/v1/invoices")]
     Task<InvoiceDto> CreateInvoiceAsync([Body] CreateInvoiceCommand command, CancellationToken ct = default);
 

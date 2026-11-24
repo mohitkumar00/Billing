@@ -48,6 +48,8 @@ public static class ApiEndpoints
         });
         products.MapPost("/{id:guid}/stock-adjust", async (Guid id, BillMate.Application.Features.Products.StockAdjustBody body, ISender sender, CancellationToken ct) =>
             Results.Ok(await sender.Send(new AdjustStockCommand(id, body.QuantityDelta, body.Reason), ct)));
+        products.MapPost("/bulk-import", async (BulkImportProductsCommand cmd, ISender sender, CancellationToken ct) =>
+            Results.Ok(await sender.Send(cmd, ct)));
 
         // Invoices & Credit Notes
         var invoices = secured.MapGroup("/invoices");

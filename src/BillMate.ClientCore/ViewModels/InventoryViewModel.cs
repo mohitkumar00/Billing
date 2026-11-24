@@ -289,4 +289,21 @@ public sealed partial class InventoryViewModel : StatefulViewModelBase
             await LoadInventoryAsync(ct);
         });
     }
+
+    [RelayCommand]
+    public async Task ImportProductsAsync(IReadOnlyList<BulkImportProductItem> items, CancellationToken ct = default)
+    {
+        if (items is null || items.Count == 0)
+        {
+            ToastMessage = "No items to import.";
+            return;
+        }
+
+        await SafeExecuteAsync(async () =>
+        {
+            var result = await _api.BulkImportProductsAsync(new BulkImportProductsCommand(items), ct);
+            ToastMessage = $"Bulk import complete: {result.ImportedCount} added, {result.UpdatedCount} updated ({result.TotalProcessed} total).";
+            await LoadInventoryAsync(ct);
+        });
+    }
 }

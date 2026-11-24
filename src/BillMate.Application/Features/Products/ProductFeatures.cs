@@ -57,6 +57,30 @@ public sealed record AdjustStockCommand(
 
 public sealed record StockAdjustBody(decimal QuantityDelta, string Reason);
 
+public sealed record BulkImportProductItem(
+    string Name,
+    string? Sku = null,
+    string? Barcode = null,
+    decimal SellingPrice = 0m,
+    decimal PurchasePrice = 0m,
+    decimal Mrp = 0m,
+    decimal OpeningStock = 0m,
+    decimal LowStockThreshold = 5m,
+    string Unit = "PCS",
+    decimal TaxRatePercent = 0m,
+    string? HsnSacCode = null,
+    bool IsService = false,
+    bool IsTaxInclusive = true);
+
+public sealed record BulkImportResultDto(
+    int TotalProcessed,
+    int ImportedCount,
+    int UpdatedCount,
+    IReadOnlyList<string> Errors);
+
+[RequirePermission("products.manage")]
+public sealed record BulkImportProductsCommand(IReadOnlyList<BulkImportProductItem> Items) : ICommand<BulkImportResultDto>;
+
 public sealed class CreateProductValidator : AbstractValidator<CreateProductCommand>
 {
     public CreateProductValidator()
@@ -83,7 +107,8 @@ internal sealed class ProductHandlers :
     IRequestHandler<SearchProductsQuery, IReadOnlyList<ProductDto>>,
     IRequestHandler<GetLowStockProductsQuery, IReadOnlyList<ProductDto>>,
     IRequestHandler<CreateProductCommand, ProductDto>,
-    IRequestHandler<AdjustStockCommand, ProductDto>
+    IRequestHandler<AdjustStockCommand, ProductDto>,
+    IRequestHandler<BulkImportProductsCommand, BulkImportResultDto>
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
@@ -212,6 +237,106 @@ internal sealed class ProductHandlers :
         await _broadcaster.BroadcastStockUpdatedAsync(businessId, product.Id, null, newBalance, ct);
 
         return Map(product);
+    }
+
+    public async Task<BulkImportResultDto> Handle(BulkImportProductsCommand request, CancellationToken ct)
+    {
+        var businessId = _currentUser.BusinessId ?? throw new UnauthorizedAppException("AUTH_003", "Missing business context.");
+        var userId = _currentUser.UserId ?? throw new UnauthorizedAppException("AUTH_003", "Missing user context.");
+
+        var slabs = await _db.TaxSlabs.Where(t => t.BusinessId == businessId).ToListAsync(ct);
+        var defaultSlab = slabs.FirstOrDefault(s => s.TotalRate == 0m) ?? slabs.FirstOrDefault();
+        if (defaultSlab is null)
+            throw new AppException("TAX_002", "No tax slabs configured for business.");
+
+        var existingProducts = await _db.Products
+            .Where(p => p.BusinessId == businessId)
+            .ToListAsync(ct);
+
+        int imported = 0, updated = 0;
+        var errors = new List<string>();
+
+        for (int i = 0; i < request.Items.Count; i++)
+        {
+            var item = request.Items[i];
+            if (string.IsNullOrWhiteSpace(item.Name))
+            {
+                errors.Add($"Row {i + 1}: Name is required.");
+                continue;
+            }
+
+            var sku = string.IsNullOrWhiteSpace(item.Sku)
+                ? $"SKU-{DateTimeOffset.UtcNow.ToUnixTimeSeconds()}-{i + 1}"
+                : item.Sku.Trim();
+
+            var slab = slabs.FirstOrDefault(s => Math.Abs(s.TotalRate - item.TaxRatePercent) < 0.01m) ?? defaultSlab;
+
+            var existing = existingProducts.FirstOrDefault(p =>
+                (!string.IsNullOrWhiteSpace(item.Barcode) && p.Barcode == item.Barcode) ||
+                string.Equals(p.Sku, sku, StringComparison.OrdinalIgnoreCase) ||
+                string.Equals(p.Name, item.Name.Trim(), StringComparison.OrdinalIgnoreCase));
+
+            if (existing is not null)
+            {
+                existing.UpdateDetails(
+                    existing.TaxSlabId,
+                    existing.Sku,
+                    item.Name.Trim(),
+                    item.SellingPrice > 0 ? item.SellingPrice : existing.SellingPrice,
+                    item.PurchasePrice > 0 ? item.PurchasePrice : existing.PurchasePrice,
+                    item.Mrp > 0 ? item.Mrp : existing.Mrp,
+                    existing.LowStockThreshold,
+                    string.IsNullOrWhiteSpace(item.Unit) ? existing.Unit : item.Unit,
+                    string.IsNullOrWhiteSpace(item.Barcode) ? existing.Barcode : item.Barcode,
+                    string.IsNullOrWhiteSpace(item.HsnSacCode) ? existing.HsnSacCode : item.HsnSacCode,
+                    existing.IsService,
+                    item.IsTaxInclusive);
+
+                if (item.OpeningStock > 0)
+                {
+                    var delta = item.OpeningStock - existing.CurrentStock;
+                    if (delta != 0)
+                    {
+                        var newBal = delta > 0 ? existing.AddStock(delta) : existing.DeductStock(Math.Abs(delta));
+                        var movementType = delta > 0 ? StockMovementType.AdjustmentAdd : StockMovementType.AdjustmentRemove;
+                        _db.StockMovements.Add(StockMovement.Create(
+                            businessId, existing.Id, movementType, delta, newBal, userId, "IMPORT", existing.Id, "Bulk update correction"));
+                    }
+                }
+                updated++;
+            }
+            else
+            {
+                var newProduct = Product.Create(
+                    businessId: businessId,
+                    taxSlabId: slab.Id,
+                    sku: sku,
+                    name: item.Name.Trim(),
+                    sellingPrice: Math.Max(0m, item.SellingPrice),
+                    purchasePrice: Math.Max(0m, item.PurchasePrice),
+                    mrp: Math.Max(0m, item.Mrp),
+                    openingStock: Math.Max(0m, item.OpeningStock),
+                    lowStockThreshold: Math.Max(0m, item.LowStockThreshold),
+                    unit: string.IsNullOrWhiteSpace(item.Unit) ? "PCS" : item.Unit.Trim().ToUpperInvariant(),
+                    barcode: string.IsNullOrWhiteSpace(item.Barcode) ? null : item.Barcode.Trim(),
+                    hsnSacCode: string.IsNullOrWhiteSpace(item.HsnSacCode) ? null : item.HsnSacCode.Trim(),
+                    isService: item.IsService,
+                    isTaxInclusive: item.IsTaxInclusive);
+
+                _db.Products.Add(newProduct);
+                existingProducts.Add(newProduct);
+
+                if (!newProduct.IsService && item.OpeningStock > 0m)
+                {
+                    _db.StockMovements.Add(StockMovement.Create(
+                        businessId, newProduct.Id, StockMovementType.Opening, item.OpeningStock, newProduct.CurrentStock, userId, "PRODUCT", newProduct.Id, "Bulk Excel Import"));
+                }
+                imported++;
+            }
+        }
+
+        await _db.SaveChangesAsync(ct);
+        return new BulkImportResultDto(request.Items.Count, imported, updated, errors);
     }
 
     private static ProductDto Map(Product p) => Map(p, p.TaxSlab?.TotalRate ?? 0m);

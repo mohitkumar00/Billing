@@ -39,4 +39,43 @@ public class IndianRetailFeaturesTests
         Assert.Contains("3%2C450.00", url);
         Assert.Contains("sharma%40sbi", url);
     }
+
+    [Fact]
+    public async Task ExcelImportService_ParsesCsvStreamSuccessfully()
+    {
+        var csv = "Name,Barcode,SellingPrice,PurchasePrice,MRP,OpeningStock,TaxRatePercent,Unit,LowStockThreshold\n" +
+                  "Tata Tea Premium,8901234567890,140.00,110.00,150.00,50,5,PCS,10\n" +
+                  "Aashirvaad Atta 5kg,8901234567891,245.00,210.00,260.00,25,0,PACK,5";
+
+        using var ms = new MemoryStream(System.Text.Encoding.UTF8.GetBytes(csv));
+        var items = await ExcelImportService.ParseStreamAsync(ms, "products.csv");
+
+        Assert.Equal(2, items.Count);
+        Assert.Equal("Tata Tea Premium", items[0].Name);
+        Assert.Equal("8901234567890", items[0].Barcode);
+        Assert.Equal(140.00m, items[0].SellingPrice);
+        Assert.Equal(110.00m, items[0].PurchasePrice);
+        Assert.Equal(150.00m, items[0].Mrp);
+        Assert.Equal(50m, items[0].OpeningStock);
+        Assert.Equal(5m, items[0].TaxRatePercent);
+
+        Assert.Equal("Aashirvaad Atta 5kg", items[1].Name);
+        Assert.Equal("PACK", items[1].Unit);
+    }
+
+    [Fact]
+    public void PosCartLine_WithDiscount_CalculatesSavingsCorrectly()
+    {
+        var prod = new Application.Features.Products.ProductDto(
+            Guid.NewGuid(), "SKU-SALT", "890123", "Tata Salt", "PCS", "2501", Guid.NewGuid(),
+            5m, 30m, 30m, 100m, 5m, false, true, false, 1);
+
+        var line = new ViewModels.CartLineViewModel(prod, 2m);
+        line.DiscountAmount = 10m; // ₹10 discount on 2 items (normally ₹60 total)
+        line.Recalculate(false, false);
+
+        Assert.True(line.HasDiscount);
+        Assert.Equal("-₹10", line.DiscountBadgeText);
+        Assert.Equal(50m, line.LineTotal);
+    }
 }

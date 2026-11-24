@@ -127,24 +127,32 @@
                 <CollectionView Grid.Row="2" ItemsSource="{Binding CartLines}">
                     <CollectionView.ItemTemplate>
                         <DataTemplate x:DataType="vm:CartLineViewModel">
-                            <Grid ColumnDefinitions="*,Auto,Auto" Padding="0,6" ColumnSpacing="8">
+                            <Grid ColumnDefinitions="*,Auto,Auto,Auto" Padding="0,6" ColumnSpacing="6">
                                 <VerticalStackLayout VerticalOptions="Center">
                                     <Label Text="{Binding Product.Name}" FontSize="13" FontAttributes="Bold" LineBreakMode="TailTruncation" />
-                                    <Label Text="{Binding Product.SellingPrice, StringFormat='₹{0:N2}'}" FontSize="11"
-                                           TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}" />
+                                    <HorizontalStackLayout Spacing="6">
+                                        <Label Text="{Binding Product.SellingPrice, StringFormat='₹{0:N2}'}" FontSize="11"
+                                               TextColor="{AppThemeBinding Light={StaticResource TextMutedLight}, Dark={StaticResource TextMutedDark}}" />
+                                        <Label Text="{Binding DiscountAmount, StringFormat='(-₹{0:0.##})'}" FontSize="11"
+                                               TextColor="#10B981" FontAttributes="Bold" IsVisible="{Binding HasDiscount}" />
+                                    </HorizontalStackLayout>
                                 </VerticalStackLayout>
-                                <HorizontalStackLayout Grid.Column="1" Spacing="4" VerticalOptions="Center">
-                                    <Button Text="-" WidthRequest="34" HeightRequest="34" Padding="0"
+                                <Button Grid.Column="1" Text="{Binding DiscountBadgeText}" HeightRequest="28" Padding="6,0" FontSize="10"
+                                        CornerRadius="6" BackgroundColor="#27272A" TextColor="#FBBF24"
+                                        CommandParameter="{Binding .}" Clicked="OnItemDiscountClicked"
+                                        ToolTipProperties.Text="Click to set item discount" />
+                                <HorizontalStackLayout Grid.Column="2" Spacing="4" VerticalOptions="Center">
+                                    <Button Text="-" WidthRequest="32" HeightRequest="32" Padding="0"
                                             CommandParameter="{Binding .}"
                                             Clicked="OnDecrementQuantityClicked" />
-                                    <Label Text="{Binding Quantity, StringFormat='{}{0:0.###}'}" WidthRequest="30"
+                                    <Label Text="{Binding Quantity, StringFormat='{}{0:0.###}'}" WidthRequest="26"
                                            HorizontalTextAlignment="Center" VerticalTextAlignment="Center" Style="{StaticResource TabularMoneyStyle}" />
-                                    <Button Text="+" WidthRequest="34" HeightRequest="34" Padding="0"
+                                    <Button Text="+" WidthRequest="32" HeightRequest="32" Padding="0"
                                             CommandParameter="{Binding .}"
                                             Clicked="OnIncrementQuantityClicked" />
                                 </HorizontalStackLayout>
-                                <Label Grid.Column="2" Text="{Binding LineTotal, StringFormat='₹{0:N2}'}" VerticalTextAlignment="Center"
-                                       Style="{StaticResource TabularMoneyStyle}" WidthRequest="70" HorizontalTextAlignment="End" />
+                                <Label Grid.Column="3" Text="{Binding LineTotal, StringFormat='₹{0:N2}'}" VerticalTextAlignment="Center"
+                                       Style="{StaticResource TabularMoneyStyle}" WidthRequest="66" HorizontalTextAlignment="End" />
                             </Grid>
                         </DataTemplate>
                     </CollectionView.ItemTemplate>
@@ -160,11 +168,37 @@
                         <Label Text="GST Total (Tax)" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" />
                         <Label Grid.Column="1" Text="{Binding GstTotal, StringFormat='₹{0:N2}'}" Style="{StaticResource TabularMoneyStyle}" FontSize="12" TextColor="#38BDF8" />
                     </Grid>
+
+                    <!-- Bill Discount Section -->
                     <Grid ColumnDefinitions="*,Auto">
                         <Label Text="Bill Discount (₹)" FontSize="12" FontAttributes="Bold" TextColor="#E2E8F0" VerticalOptions="Center" />
                         <Entry Grid.Column="1" Text="{Binding BillDiscountAmount}" Keyboard="Numeric"
                                WidthRequest="90" HeightRequest="32" FontSize="12" HorizontalTextAlignment="End" />
                     </Grid>
+                    <HorizontalStackLayout Spacing="6">
+                        <Button Text="0%" HeightRequest="26" Padding="8,0" FontSize="11" CornerRadius="4"
+                                BackgroundColor="#27272A" TextColor="#A1A1AA"
+                                Command="{Binding ApplyBillDiscountPercentCommand}" CommandParameter="0" />
+                        <Button Text="5%" HeightRequest="26" Padding="8,0" FontSize="11" CornerRadius="4"
+                                BackgroundColor="#27272A" TextColor="#34D399"
+                                Command="{Binding ApplyBillDiscountPercentCommand}" CommandParameter="5" />
+                        <Button Text="10%" HeightRequest="26" Padding="8,0" FontSize="11" CornerRadius="4"
+                                BackgroundColor="#27272A" TextColor="#34D399"
+                                Command="{Binding ApplyBillDiscountPercentCommand}" CommandParameter="10" />
+                        <Button Text="₹50" HeightRequest="26" Padding="8,0" FontSize="11" CornerRadius="4"
+                                BackgroundColor="#27272A" TextColor="#6EE7B7"
+                                Command="{Binding SetBillDiscountAmountCommand}" CommandParameter="50" />
+                        <Button Text="₹100" HeightRequest="26" Padding="8,0" FontSize="11" CornerRadius="4"
+                                BackgroundColor="#27272A" TextColor="#6EE7B7"
+                                Command="{Binding SetBillDiscountAmountCommand}" CommandParameter="100" />
+                    </HorizontalStackLayout>
+                    <Border IsVisible="{Binding HasAnyDiscounts}" BackgroundColor="#064E3B" Stroke="#059669" StrokeShape="RoundRectangle 6" Padding="6,4">
+                        <Grid ColumnDefinitions="*,Auto">
+                            <Label Text="🎉 Total Customer Savings" FontSize="11" FontAttributes="Bold" TextColor="#6EE7B7" VerticalTextAlignment="Center" />
+                            <Label Grid.Column="1" Text="{Binding TotalSavings, StringFormat='-₹{0:N2}'}" FontSize="12" FontAttributes="Bold" TextColor="#34D399" VerticalTextAlignment="Center" Style="{StaticResource TabularMoneyStyle}" />
+                        </Grid>
+                    </Border>
+
                     <Grid ColumnDefinitions="*,Auto" Margin="0,2,0,0">
                         <Label Text="GRAND TOTAL" FontSize="16" FontAttributes="Bold" TextColor="#FFFFFF" />
                         <Label Grid.Column="1" Text="{Binding GrandTotal, StringFormat='₹{0:N2}'}" FontSize="24" FontAttributes="Bold" TextColor="#10B981" Style="{StaticResource TabularMoneyStyle}" />

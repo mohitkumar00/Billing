@@ -84,6 +84,52 @@ public partial class PosPage : ContentPage
         }
     }
 
+    private async void OnItemDiscountClicked(object? sender, EventArgs e)
+    {
+        if (sender is not Button { CommandParameter: CartLineViewModel line }) return;
+
+        var currentVal = line.DiscountAmount > 0 ? line.DiscountAmount.ToString("0.##") : string.Empty;
+        var result = await DisplayPromptAsync(
+            "Item Discount",
+            $"Enter discount for '{line.Product.Name}':\n(e.g., 20 for ₹20, or 10% for 10% off)",
+            accept: "Apply",
+            cancel: "Cancel",
+            placeholder: "0",
+            initialValue: currentVal,
+            keyboard: Keyboard.Text);
+
+        if (result is null) return;
+
+        var trimmed = result.Trim();
+        if (string.IsNullOrWhiteSpace(trimmed))
+        {
+            _vm.SetLineDiscount(line, 0m);
+            return;
+        }
+
+        decimal discountAmount = 0m;
+        if (trimmed.EndsWith('%'))
+        {
+            var pctStr = trimmed.TrimEnd('%').Trim();
+            if (decimal.TryParse(pctStr, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var pct) ||
+                decimal.TryParse(pctStr, out pct))
+            {
+                var rawLineTotal = line.Quantity * line.Product.SellingPrice;
+                discountAmount = Math.Round(rawLineTotal * (pct / 100m), 2);
+            }
+        }
+        else
+        {
+            if (decimal.TryParse(trimmed, System.Globalization.NumberStyles.Number, System.Globalization.CultureInfo.InvariantCulture, out var amt) ||
+                decimal.TryParse(trimmed, out amt))
+            {
+                discountAmount = amt;
+            }
+        }
+
+        _vm.SetLineDiscount(line, Math.Max(0m, discountAmount));
+    }
+
 #if WINDOWS
     private void AttachWindowsKeyHandler()
     {

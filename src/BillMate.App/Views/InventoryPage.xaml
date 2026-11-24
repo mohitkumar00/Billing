@@ -26,12 +26,14 @@
                         <Label Text="Track live counter stock, receive supplier inward deliveries, and adjust quantities."
                                FontSize="13" TextColor="#A1A1AA" />
                     </VerticalStackLayout>
-                    <HorizontalStackLayout Grid.Column="1" Spacing="10" VerticalOptions="Center">
-                        <Button Text="🛒 Go to POS Bill" BackgroundColor="#1565C0" TextColor="#FFFFFF" FontAttributes="Bold" CornerRadius="8"
-                                Command="{Binding NavigateToPosCommand}" />
+                    <HorizontalStackLayout Grid.Column="1" Spacing="8" VerticalOptions="Center">
+                        <Button Text="📄 Template" BackgroundColor="#27272A" TextColor="#6EE7B7" FontAttributes="Bold" CornerRadius="8"
+                                Clicked="OnDownloadTemplateClicked" ToolTipProperties.Text="Save sample Excel/CSV template" />
+                        <Button Text="📥 Import Excel/CSV" BackgroundColor="#059669" TextColor="#FFFFFF" FontAttributes="Bold" CornerRadius="8"
+                                Clicked="OnImportExcelClicked" ToolTipProperties.Text="Bulk import products from .xlsx or .csv" />
                         <Button Text="↻ Refresh" BackgroundColor="#27272A" TextColor="#FAFAFA" CornerRadius="8"
                                 Command="{Binding LoadInventoryCommand}" />
-                        <Button Text="+ Add New Product" Style="{StaticResource PrimaryActionButton}"
+                        <Button Text="+ Add Product" Style="{StaticResource PrimaryActionButton}"
                                 Command="{Binding OpenNewProductDialogCommand}" />
                     </HorizontalStackLayout>
                 </Grid>

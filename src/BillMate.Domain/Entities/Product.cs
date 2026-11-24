@@ -86,6 +86,41 @@ public sealed class Product : BaseEntity, IAggregateRoot
         MarkUpdated();
     }
 
+    public void UpdateDetails(
+        Guid taxSlabId,
+        string sku,
+        string name,
+        decimal sellingPrice,
+        decimal purchasePrice,
+        decimal mrp,
+        decimal lowStockThreshold,
+        string unit,
+        string? barcode,
+        string? hsnSacCode,
+        bool isService,
+        bool isTaxInclusive)
+    {
+        if (string.IsNullOrWhiteSpace(name))
+            throw new DomainException("VAL_031", "Product name is required.");
+        if (sellingPrice < 0m || purchasePrice < 0m || mrp < 0m)
+            throw new DomainException("VAL_032", "Product prices cannot be negative.");
+
+        TaxSlabId = taxSlabId;
+        Sku = string.IsNullOrWhiteSpace(sku) ? Sku : sku.Trim().ToUpperInvariant();
+        Name = name.Trim();
+        SellingPrice = sellingPrice;
+        PurchasePrice = purchasePrice;
+        Mrp = mrp > 0m ? mrp : sellingPrice;
+        LowStockThreshold = lowStockThreshold;
+        Unit = string.IsNullOrWhiteSpace(unit) ? "PCS" : unit.Trim().ToUpperInvariant();
+        Barcode = string.IsNullOrWhiteSpace(barcode) ? null : barcode.Trim();
+        HsnSacCode = string.IsNullOrWhiteSpace(hsnSacCode) ? null : hsnSacCode.Trim();
+        IsService = isService;
+        IsTaxInclusive = isTaxInclusive;
+        RowVersion++;
+        MarkUpdated();
+    }
+
     public bool IsLowStock() => !IsService && CurrentStock <= LowStockThreshold;
 
     public decimal DeductStock(decimal quantity)
