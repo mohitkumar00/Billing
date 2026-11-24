@@ -98,4 +98,5 @@ public interface IBackupOrchestrator
 {
     Task<Guid> RunBackupAsync(Guid businessId, BackupTarget target, CancellationToken ct = default);
     Task RestoreFromDriveAsync(Guid businessId, string remoteFileId, CancellationToken ct = default);
+    Task RestoreLocalBackupAsync(Guid businessId, string backupFilePath, CancellationToken ct = default);
 }

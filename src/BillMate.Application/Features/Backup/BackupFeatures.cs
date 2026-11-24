@@ -46,13 +46,17 @@ public sealed record ListDriveBackupsQuery : IQuery<IReadOnlyList<DriveBackupFil
 [RequirePermission("backup.manage")]
 public sealed record RestoreFromDriveCommand(string RemoteFileId) : IRequest<Unit>;
 
+[RequirePermission("backup.manage")]
+public sealed record RestoreLocalBackupCommand(string BackupPath) : IRequest<Unit>;
+
 internal sealed class BackupHandlers :
     IRequestHandler<RunBackupCommand, Guid>,
     IRequestHandler<GetBackupHistoryQuery, IReadOnlyList<BackupLogDto>>,
     IRequestHandler<GetDriveAuthUrlQuery, DriveAuthUrlDto>,
     IRequestHandler<CompleteDriveAuthCommand, Unit>,
     IRequestHandler<ListDriveBackupsQuery, IReadOnlyList<DriveBackupFileDto>>,
-    IRequestHandler<RestoreFromDriveCommand, Unit>
+    IRequestHandler<RestoreFromDriveCommand, Unit>,
+    IRequestHandler<RestoreLocalBackupCommand, Unit>
 {
     private readonly IApplicationDbContext _db;
     private readonly ICurrentUserService _currentUser;
@@ -141,6 +145,13 @@ internal sealed class BackupHandlers :
     {
         var businessId = _currentUser.BusinessId ?? throw new UnauthorizedAppException("AUTH_003", "Missing business context.");
         await _orchestrator.RestoreFromDriveAsync(businessId, request.RemoteFileId, ct);
+        return Unit.Value;
+    }
+
+    public async Task<Unit> Handle(RestoreLocalBackupCommand request, CancellationToken ct)
+    {
+        var businessId = _currentUser.BusinessId ?? throw new UnauthorizedAppException("AUTH_003", "Missing business context.");
+        await _orchestrator.RestoreLocalBackupAsync(businessId, request.BackupPath, ct);
         return Unit.Value;
     }
 

@@ -21,6 +21,9 @@ public sealed record CustomerPaymentBody(
     string? ReferenceNumber = null,
     string? Notes = null);
 
+public sealed record RunBackupBody(BackupTarget Target);
+public sealed record RunBackupResponse(Guid BackupLogId);
+
 public interface IBillMateApi
 {
 
@@ -101,6 +104,15 @@ public interface IBillMateApi
 
     [Get("/api/v1/expenses/categories")]
     Task<IReadOnlyList<ExpenseCategoryDto>> GetExpenseCategoriesAsync(CancellationToken ct = default);
+
+    [Post("/api/v1/backup/run")]
+    Task<RunBackupResponse> RunBackupAsync([Body] RunBackupBody body, CancellationToken ct = default);
+
+    [Get("/api/v1/backup/history")]
+    Task<IReadOnlyList<BackupLogDto>> GetBackupHistoryAsync([Query] int limit = 30, CancellationToken ct = default);
+
+    [Post("/api/v1/backup/restore-local")]
+    Task RestoreLocalBackupAsync([Body] RestoreLocalBackupCommand command, CancellationToken ct = default);
 
     [Get("/api/v1/backup/drive/list")]
     Task<IReadOnlyList<DriveBackupFileDto>> ListDriveBackupsAsync(CancellationToken ct = default);

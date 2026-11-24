@@ -166,6 +166,11 @@ public static class ApiEndpoints
             await sender.Send(cmd, ct);
             return Results.NoContent();
         });
+        backup.MapPost("/restore-local", async (RestoreLocalBackupCommand cmd, ISender sender, CancellationToken ct) =>
+        {
+            await sender.Send(cmd, ct);
+            return Results.NoContent();
+        });
 
         return app;
     }

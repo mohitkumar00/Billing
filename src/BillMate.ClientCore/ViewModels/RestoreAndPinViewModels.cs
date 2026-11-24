@@ -5,6 +5,7 @@ using BillMate.ClientCore.Api;
 using BillMate.ClientCore.Services;
 using CommunityToolkit.Mvvm.ComponentModel;
 using CommunityToolkit.Mvvm.Input;
+using Refit;
 
 namespace BillMate.ClientCore.ViewModels;
 
@@ -23,19 +24,82 @@ public sealed partial class RestoreWizardViewModel : StatefulViewModelBase
     [ObservableProperty]
     private bool _isRestoreCompleted;
 
+    [ObservableProperty]
+    private string _statusSubtitle = "Select a backup snapshot to restore your shop database.";
+
+    [ObservableProperty]
+    private bool _isDriveConnected = true;
+
     public RestoreWizardViewModel(IBillMateApi api) => _api = api;
 
     [RelayCommand]
-    public async Task LoadDriveBackupsAsync(CancellationToken ct = default)
+    public async Task LoadBackupsAsync(CancellationToken ct = default)
     {
         await SafeExecuteAsync(async () =>
         {
             CurrentStep = 1;
             IsRestoreCompleted = false;
-            var list = await _api.ListDriveBackupsAsync(ct);
             AvailableBackups.Clear();
-            foreach (var f in list) AvailableBackups.Add(f);
+
+            // 1. Retrieve historical/local backups
+            try
+            {
+                var history = await _api.GetBackupHistoryAsync(30, ct);
+                foreach (var h in history.Where(x => x.Status == BillMate.Domain.Enums.BackupStatus.Uploaded || x.Status == BillMate.Domain.Enums.BackupStatus.Verified))
+                {
+                    var isDrive = h.BackupTarget == BillMate.Domain.Enums.BackupTarget.GoogleDrive;
+                    var label = isDrive ? $"☁️ [Drive] {h.FileName}" : $"💾 [Local] {h.FileName}";
+                    var fileId = isDrive ? (h.RemoteFileId ?? h.Id.ToString()) : $"local:{h.RemoteFileId ?? h.FileName}";
+                    AvailableBackups.Add(new DriveBackupFileDto(fileId, label, h.FileSizeBytes, h.StartedAt));
+                }
+            }
+            catch
+            {
+                // Local history fetch may be empty or unconfigured initially
+            }
+
+            // 2. Fetch Google Drive backups if configured
+            try
+            {
+                var driveList = await _api.ListDriveBackupsAsync(ct);
+                IsDriveConnected = true;
+                foreach (var f in driveList)
+                {
+                    if (!AvailableBackups.Any(x => x.FileId == f.FileId))
+                    {
+                        AvailableBackups.Add(new DriveBackupFileDto(f.FileId, $"☁️ {f.FileName}", f.SizeBytes, f.CreatedAtUtc));
+                    }
+                }
+            }
+            catch (ApiException apiEx) when ((int)apiEx.StatusCode == 400 || apiEx.Content?.Contains("Google Drive") == true)
+            {
+                IsDriveConnected = false;
+            }
+            catch
+            {
+                IsDriveConnected = false;
+            }
+
             IsEmpty = AvailableBackups.Count == 0;
+            StatusSubtitle = AvailableBackups.Count > 0
+                ? $"Found {AvailableBackups.Count} database snapshot(s). Select one to restore."
+                : (IsDriveConnected
+                    ? "No backups found. Click 'Create Local Backup Now' to create a snapshot."
+                    : "No backups found. Google Drive is not connected, but you can create a local backup below.");
+        });
+    }
+
+    [RelayCommand]
+    public Task LoadDriveBackupsAsync(CancellationToken ct = default) => LoadBackupsAsync(ct);
+
+    [RelayCommand]
+    public async Task CreateLocalBackupAsync(CancellationToken ct = default)
+    {
+        await SafeExecuteAsync(async () =>
+        {
+            var res = await _api.RunBackupAsync(new RunBackupBody(BillMate.Domain.Enums.BackupTarget.LocalDisk), ct);
+            ToastMessage = "Local database backup created successfully!";
+            await LoadBackupsAsync(ct);
         });
     }
 
@@ -47,16 +111,33 @@ public sealed partial class RestoreWizardViewModel : StatefulViewModelBase
     }
 
     [RelayCommand]
+    public void CancelConfirmation()
+    {
+        SelectedBackup = null;
+        CurrentStep = 1;
+    }
+
+    [RelayCommand]
     public async Task ExecuteRestoreAsync(CancellationToken ct = default)
     {
         if (SelectedBackup is null) return;
 
         await SafeExecuteAsync(async () =>
         {
-            await _api.RestoreFromDriveAsync(new RestoreFromDriveCommand(SelectedBackup.FileId), ct);
+            var fileId = SelectedBackup.FileId;
+            if (fileId.StartsWith("local:", StringComparison.OrdinalIgnoreCase))
+            {
+                var path = fileId.Substring(6);
+                await _api.RestoreLocalBackupAsync(new RestoreLocalBackupCommand(path), ct);
+            }
+            else
+            {
+                await _api.RestoreFromDriveAsync(new RestoreFromDriveCommand(fileId), ct);
+            }
+
             CurrentStep = 3;
             IsRestoreCompleted = true;
-            ToastMessage = $"Restored database from '{SelectedBackup.FileName}'.";
+            ToastMessage = $"Successfully restored database from '{SelectedBackup.FileName}'.";
         });
     }
 }

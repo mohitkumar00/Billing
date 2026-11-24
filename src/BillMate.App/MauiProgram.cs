@@ -2,7 +2,6 @@ using BillMate.App.Services;
 using BillMate.App.Views;
 using BillMate.ClientCore.Services;
 using BillMate.ClientCore.Theme;
-using CommunityToolkit.Maui;
 
 namespace BillMate.App;
 
@@ -12,8 +11,7 @@ public static class MauiProgram
     {
         var builder = MauiApp.CreateBuilder();
         builder
-            .UseMauiApp<App>()
-            .UseMauiCommunityToolkit();
+            .UseMauiApp<App>();
 
         var whiteLabel = LoadWhiteLabelConfig();
         var sqlitePath = Path.Combine(FileSystem.AppDataDirectory, "billmate_offline.db");

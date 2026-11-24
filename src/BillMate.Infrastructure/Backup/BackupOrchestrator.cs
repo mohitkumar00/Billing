@@ -294,6 +294,45 @@ public sealed class BackupOrchestrator : IBackupOrchestrator
         }
     }
 
+    public async Task RestoreLocalBackupAsync(Guid businessId, string backupFilePath, CancellationToken ct = default)
+    {
+        if (!File.Exists(backupFilePath))
+            throw new AppException("BKP_007", $"Backup file '{backupFilePath}' does not exist on disk.", 404);
+
+        var tempDump = Path.Combine(Path.GetTempPath(), $"restore_local_{Guid.NewGuid():N}.dump");
+        var cleanupTempDump = false;
+
+        try
+        {
+            string dumpToRestore;
+            if (backupFilePath.EndsWith(".gz", StringComparison.OrdinalIgnoreCase))
+            {
+                await DecompressGzipAsync(backupFilePath, tempDump, ct);
+                cleanupTempDump = true;
+                dumpToRestore = tempDump;
+            }
+            else
+            {
+                dumpToRestore = backupFilePath;
+            }
+
+            await _pgTools.VerifyDumpAsync(dumpToRestore, ct);
+
+            var connStr = _configuration.GetConnectionString("DefaultConnection")
+                ?? throw new AppException("BKP_006", "Database connection string missing.");
+
+            await _pgTools.RecreateDatabaseAsync(connStr, ct);
+            await _pgTools.RestoreDumpAsync(connStr, dumpToRestore, ct);
+        }
+        finally
+        {
+            if (cleanupTempDump && File.Exists(tempDump))
+            {
+                File.Delete(tempDump);
+            }
+        }
+    }
+
     private static async Task CompressGzipAsync(string sourcePath, string destGzPath, CancellationToken ct)
     {
         await using var input = File.OpenRead(sourcePath);
