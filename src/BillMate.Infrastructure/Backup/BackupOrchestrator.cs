@@ -1,7 +1,9 @@
 using System.Diagnostics;
+using System.ComponentModel;
 using System.IO.Compression;
 using System.Security.Cryptography;
 using System.Text;
+using System.Runtime.InteropServices;
 using BillMate.Application.Common.Exceptions;
 using BillMate.Application.Common.Interfaces;
 using BillMate.Application.Features.Backup;
@@ -67,7 +69,7 @@ public sealed class PgToolsRunner : IPgToolsRunner
 
     private async Task RunPgToolAsync(string toolName, string arguments, string? password, CancellationToken ct)
     {
-        var exe = string.IsNullOrWhiteSpace(_pgBinDirectory) ? toolName : Path.Combine(_pgBinDirectory, toolName);
+        var exe = ResolveToolPath(toolName);
         var psi = new ProcessStartInfo(exe, arguments)
         {
             RedirectStandardError = true,
@@ -79,12 +81,100 @@ public sealed class PgToolsRunner : IPgToolsRunner
         if (!string.IsNullOrEmpty(password))
             psi.Environment["PGPASSWORD"] = password;
 
-        using var proc = Process.Start(psi) ?? throw new AppException("BKP_004", $"Failed to start {toolName}.");
+        Process? proc;
+        try
+        {
+            proc = Process.Start(psi);
+        }
+        catch (Win32Exception ex)
+        {
+            throw new AppException(
+                "BKP_004",
+                $"Failed to start {toolName}. Ensure PostgreSQL client tools are installed and set Postgres:BinDirectory in configuration. Details: {ex.Message}");
+        }
+
+        if (proc is null)
+            throw new AppException("BKP_004", $"Failed to start {toolName}.");
+
+        using (proc)
+        {
         var stderr = await proc.StandardError.ReadToEndAsync(ct);
         await proc.WaitForExitAsync(ct);
 
         if (proc.ExitCode != 0)
             throw new AppException("BKP_005", $"{toolName} exited with code {proc.ExitCode}: {stderr}");
+        }
+    }
+
+    private string ResolveToolPath(string toolName)
+    {
+        var fileName = RuntimeInformation.IsOSPlatform(OSPlatform.Windows) ? $"{toolName}.exe" : toolName;
+
+        var pathResolved = ResolveFromSystemPath(fileName);
+        if (!string.IsNullOrWhiteSpace(pathResolved))
+        {
+            return pathResolved;
+        }
+
+        if (!string.IsNullOrWhiteSpace(_pgBinDirectory))
+        {
+            var configuredPath = Path.Combine(_pgBinDirectory, fileName);
+            if (File.Exists(configuredPath))
+            {
+                return configuredPath;
+            }
+        }
+
+        if (!RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            return toolName;
+        }
+
+        var localAppData = Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData);
+        var candidates = new[]
+        {
+            Path.Combine(localAppData, "PostgreSQL", "pgsql", "bin", fileName),
+            Path.Combine(AppContext.BaseDirectory, "pgsql", "bin", fileName),
+            Path.Combine(AppContext.BaseDirectory, "db", "pgsql", "bin", fileName),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PostgreSQL", "17", "bin", fileName),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PostgreSQL", "16", "bin", fileName),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PostgreSQL", "15", "bin", fileName),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PostgreSQL", "14", "bin", fileName),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFiles), "PostgreSQL", "13", "bin", fileName),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "PostgreSQL", "17", "bin", fileName),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "PostgreSQL", "16", "bin", fileName),
+            Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ProgramFilesX86), "PostgreSQL", "15", "bin", fileName)
+        };
+
+        var discovered = candidates.FirstOrDefault(File.Exists);
+        return discovered ?? fileName;
+    }
+
+    private static string? ResolveFromSystemPath(string fileName)
+    {
+        var path = Environment.GetEnvironmentVariable("PATH");
+        if (string.IsNullOrWhiteSpace(path))
+        {
+            return null;
+        }
+
+        foreach (var segment in path.Split(Path.PathSeparator, StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+        {
+            try
+            {
+                var candidate = Path.Combine(segment, fileName);
+                if (File.Exists(candidate))
+                {
+                    return candidate;
+                }
+            }
+            catch
+            {
+                // Ignore malformed PATH segment and continue.
+            }
+        }
+
+        return null;
     }
 }
 
